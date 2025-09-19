@@ -1,0 +1,11 @@
+Insert Into SystemForm (IsCustom, FormName, DataIndex, PageCaption, DataOption, DataSQL, DataName)
+Values (1, 'ForAna{0}', 17, 'Condomini', '0101010100000000000', 'Select 
+	ItemID, 
+	Cast(ItemUse As varchar(3)) As ItemUse, 
+	ItemType, ItemDes, Ind, Loc, Cap, Pro, Reg, Naz
+From dbo.[MixAna]
+Where (1=1) 
+	And ItemType = 1
+	And GrpCod = ''CONDOMINI''
+	And Tab1 = ''{ItemID}''
+Order By ItemID', 'MixAna')

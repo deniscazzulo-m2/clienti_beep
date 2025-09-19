@@ -1,0 +1,88 @@
+Modulo CntReg Indice 0
+
+Segnato come Pers
+
+Modificato SQL:
+
+Select
+'' As buttonPlus, '' As buttonOpen,  '' As buttonOpen2,
+Year(REG.MovDta) As MovYear, Month(REG.MovDta) As MovMonth,
+REG.*
+--RIGA SEGUENTE: Personalizzazione M2Sistemi
+, LIN2.MovInfo
+From dbo.[CntReg] REG
+--RIGA SEGUENTE: Personalizzazione M2Sistemi
+Left Join (SELECT DISTINCT LIN1.UniqMov, LIN1.MovInfo from dbo.[CntRegLin] LIN1) LIN2 On LIN2.UniqMov = REG.Uniq
+Where (1=1)
+	And (Year(REG.MovDta) Between {1} And {2})
+Order By Uniq DESC, MovDta DESC
+
+Modificato Layout:
+
+buttonPlus: [# _191919-16_icons8-add-16.png § DETT § Dati collegati],50,B10100,V,-M,-E,-T,A111,CF-657931,CB-657931
+buttonOpen: [# Book_openHS.png § Apri REG § Apri registrazione],50,B10100,V,-M,-E,-T,A111,CF-657931,CB-657931
+buttonOpen2: [# OpenSelectedItemHS.png § Apri DOC § Apri documento],50,B10100,V,-M,-E,-T,A111,CF-657931,CB-657931
+MovDta: V,M
+MovDtaCpt: V,M
+Divisa: V,M
+Cambio: V,M
+MovYear: [Anno],D32,40,V,M,-E,A111,CB-1828
+MovMonth: [Mese],D31,36,V,M,-E,A111,CB-1828
+MovInfo: [Centro di costo],V,-M
+
+---------------------------------------------------------------------------------------------------------
+
+Modulo RC_CntPay_1 Indice 0
+
+Segnato come Pers
+
+Modificato SQL:
+
+Select ItemDes, A.AnaCod, Convert(bit, 0) As X,
+	A.ItemDate, 
+	A.Attivo As Importo,
+	'' As buttonChange,
+	dbo.[udfDocTip_DocSigla](A.DocTip) As Sigla,
+	--RIGA SEGUENTE: Personalizzazione M2Sistemi
+	C.ProNum NumeroProtocollo,
+	A.DocTip, A.DocNum, A.DocDta, Upper(A.Divisa) As Divisa,
+	A.ItemStatus, A.ItemType, A.ItemAuto,	
+	A.AnaType,	
+	A.AttivoDivisa As ImportoDivisa,
+	A.RibaDocNum, A.RibaPreNum,	A.RibaElab,
+	A.CntPayID
+From dbo.[CntPay] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+--RIGA SEGUENTE: Personalizzazione M2Sistemi
+Left Join dbo.[CntReg] C On C.AnaCod = A.AnaCod And C.MovType = A.AnaType And C.MovDocNum = A.DocNum
+Left Join dbo.[CliDoc] D On D.DocTip = A.DocTip And D.DocNum = A.DocNum And D.DocDta = A.DocDta
+Where (1=1)
+	And A.AnaType = 1
+	And A.AnaCod Like '{0}'
+	And IsNull(A.Payed, 0) = 0
+	And IsNull(A.DraftID, 0) = 0
+	And (IsNull(D.Uniq, 0) Not In(Select IsNull(DocUniq, 0) From dbo.[FactoringContent]))
+Order By A.AnaCod, A.DocTip, A.DocNum, A.DocDta, A.ItemDate DESC
+
+Modificato Layout:
+
+(grid): MR
+buttonChange: [# number2.gif § DIV § Cambia importo<CM> suddividi scadenza ... §  § 0],30,B10100,V,-M,A111,CF-657931,CB-657931
+ItemDes: V,M,-E,-T,A0
+AnaCod: [Codice cliente],V,M,-E,-T,A0
+ItemDate: V,-M,-E,-T,A111
+Importo: D50,V,-M,-E,T,A212,F100,CB-1828
+DocTip: -V,M,-E,-T,A0
+DocNum: V,M,-E,-T,A0,CB-1828
+DocDta: V,M,-E,-T,A111,CB-1828
+ItemStatus: 40,V,-M,-E,-T,A111,G
+ItemType: [Tipo scad.],40,V,-M,-E,-T,A111,G
+ItemAuto: -V,-M,-E,-T,A0
+AnaType: -V,-M,-E,-T,A0
+Divisa: 40,V,M,-E,-T,A111
+ImportoDivisa: [Importo divisa],D50,-V,-M,-E,-T,A0
+RibaDocNum: -V,-M,-E,-T,A0
+RibaElab: -V,-M,-E,-T,A0
+CntPayID: -V,-M,-E,-T,A0
+Sigla: [Tipo doc.],40,V,-M,-E,-T,A111
+NumeroProtocollo: [Numero Protocollo],65,V,-M,-E,-T

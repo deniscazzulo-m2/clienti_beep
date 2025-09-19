@@ -1,0 +1,75 @@
+-----------------------------------------------------------------------------------------------------------------------------------
+Importazione Excel
+
+È stato sviluppato il sistema di importazione prezzi per i file-prezzi mostrati nell’ultima riunione (asse X = Larghezza, asse Y = Altezza).
+
+Il sistema di importazione è utilizzabile facendo click nella parte alta della griglia Prezzi di vendita.
+
+Anagrafiche > Prodotti > Anagrafica generale. Aprire scheda Prezzi di vendita.
+
+
+Vedi Modulo PrdAna{0} Indice 8
+-----------------------------------------------------------------------------------------------------------------------------------
+Statistiche ordinato prodotti con misure
+
+Come da richiesta è stata aggiunta la colonna "quantità" nel menù: Vendite > Totali e statistiche > Statistiche ordinato prodotti con misure
+
+La colonna è il risultato della Join su PrdQta in CliOrd.
+
+
+Vedi Modulo VenditeDocSumMis Indice 0
+-----------------------------------------------------------------------------------------------------------------------------------
+Maschere
+
+Nuove maschere realizzate e verificate. Le maschere applicano lo sconto sul supplemento (ove aggiunto) in base allo sconto per il cliente.
+
+Gli sconti per i clienti vengono applicati utilizzando la categoria cliente, applicando il valore inserito in Prezzi e promozioni di vendita.
+
+Ci sono dei problemini riaprendo la maschera(parametri prodotto) una volta che è già stata salvata all’interno di un documento. Giorgia ne è già consapevole, eventualmente elimina la riga e la rifà. Nel caso si abbia del tempo si possono fare delle verifiche.
+Per velocizzare il lavoro è possibile fare click nella testata del form delle griglie (vedi foto successiva) per filtrare SOLO le ultime maschere create. Aggiungere nel filtro eventuali nuove maschere create in futuro.
+
+
+Vedi Modulo PrdForm{0} Indice 0
+-----------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+VenditeDoc 8 -> uvwCliOrdLin_Pers -> Controlla se esiste in dbo.[PosDocLin]
+
+
+
+
+
+
+
+
+
+Prove Prodotti Incongruenti
+PrdAnaAll 11
+
+
+
+Personalizzazione B2B
+B2BManager_Pers 0
+B2BManager_Pers 1
+CliAna{0} 3
+CliAna{0} 22
+
+
+
+
+Personalizzazione Agenti e Zone
+VenditeDocSum 6
+VenditeDocSum 15
+
+
+Erroenamente segnata come Pers (?)
+MagAnalyze 1
+
+
+
+View Personalizzate non Utilizzate (?)
+uvwCliOffLinWithMis_Pers

@@ -1,0 +1,215 @@
+-------------------------------------------------------------------------------------------------------------------------
+Modulo VenditeDoc. Indice 0.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT
+    '' As buttonPlus,
+    '' As buttonOpen,
+    A.*
+FROM dbo.[uvwCliOff_Pers] A
+WHERE (1 = 1)
+    And (
+        DocYear Between {1}
+        And {2}
+    )
+ORDER BY
+    DocYear DESC,
+    NumCod,
+    Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Offerta],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo VenditeDoc. Indice 1.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+%
+Dim Year1 = FormInfoGet("Year1", 0)
+Dim Year2 = FormInfoGet("Year2", 0)
+[SQL]
+SELECT '' As buttonPlus, '' As buttonOpen, A.*
+FROM dbo.[uvwCliOrd_Pers] A
+WHERE (1=1)
+	And (DocYear BETWEEN {@Year1} And {@Year2})
+ORDER BY DocYear DESC, NumCod, Numero DESC
+[/SQL]
+
+Layout:
+[...]
+Info5: [Stato Ordine],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo CliAna{0}. Indice 15.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT '' As buttonPlus, '' As buttonOpen, A.*
+FROM dbo.[uvwCliOff_Pers] A
+WHERE (1=1)
+	And AnaCod = '{ItemID}'
+ORDER BY DocYear DESC, NumCod, Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Offerta],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo CliAna{0}. Indice 16.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT '' As buttonPlus, '' As buttonOpen, A.*
+FROM dbo.[uvwCliOrd_Pers] A
+WHERE (1=1)
+	And AnaCod = '{ItemID}'
+ORDER BY DocYear DESC, NumCod, Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Ordine],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo CliAna{0}10. Indice 15.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT '' As buttonPlus, '' As buttonOpen, A.*
+FROM dbo.[uvwCliOff_Pers] A
+WHERE (1=1)
+	And AnaCod = '{ItemID}'
+ORDER BY DocYear DESC, NumCod, Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Offerta],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo CliAna{0}10. Indice 16.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT '' As buttonPlus, '' As buttonOpen, A.*
+FROM dbo.[uvwCliOrd_Pers] A
+WHERE (1=1)
+	And AnaCod = '{ItemID}'
+ORDER BY DocYear DESC, NumCod, Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Ordine],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo CliAna{0}12. Indice 7.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT '' As buttonPlus, '' As buttonOpen, A.*
+FROM dbo.[uvwCliOrd_Pers] A
+WHERE (1=1)
+	And AnaCod = '{ItemID}'
+ORDER BY DocYear DESC, NumCod, Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Ordine],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>
+-------------------------------------------------------------------------------------------------------------------------
+Modulo docListOPP. Indice 0.
+-------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+
+SQL:
+SELECT
+    '' As buttonPlus,
+    '' As buttonOpen,
+    A.*
+FROM dbo.[uvwCliOffPot_Pers] A
+WHERE (1 = 1)
+    And (
+        DocYear Between {1}
+        And {2}
+    )
+ORDER BY
+    DocYear DESC,
+    NumCod,
+    Numero DESC
+
+Layout:
+[...]
+Info5: [Stato Offerta],D1,60,V,-M,-E,-T,A111
+Info5Stile: -V,-M,-E,-T
+
+Script Eventi:
+[...]
+<info5.style>
+<![CDATA[
+Return "{Info5Stile}"
+]]>
+</info5.style>

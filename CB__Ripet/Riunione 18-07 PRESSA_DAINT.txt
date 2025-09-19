@@ -1,0 +1,325 @@
+PRESSA_DAINT
+
+uspVE_OnEdit
+@sItemName = 'PrdCod'
+
+
+
+
+0=C-FRONT
+1=1
+2=00010
+
+
+
+
+
+Modulo PrdSerial{0}status{1}
+
+Grid checked => false
+
+SQL => Select PrdCod, PrdSerial, ForCod, PdtCod, ForSerial, PdtSerial
+From dbo.[PrdSerialAna]
+Where (1=1)
+	And PrdCod Like '{0}'
+	And IsNull(ItemStatus, '') Like '{1}'
+	--Inizio Pers M2
+	And LTrim(RTrim(IsNull(ItemKind, ''))) Not In ('OPERATIVO', 'NASCOSTO')
+	--Fine Pers M2
+
+
+
+
+
+Event FormOk
+
+MsgOk GridCheckedList("PrdSerial",",",-1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Modulo docBO{0}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(
+	@p1 smallint,
+	@p2 tinyint,
+	@p3 smallint,
+	@p4 tinyint,
+	@p5 bit,
+	@p6 decimal(19, 6),
+	@p7 decimal(19, 6),
+	@p8 bit,
+	@p9 varchar(7),
+	@p10 varchar(7),
+	@p11 varchar(5),
+	@p12 varchar(8000),
+	@p13 decimal(19, 6),
+	@p14 varchar(8000),
+	@p15 varchar(19),
+	@p16 varchar(8000),
+	@p17 date,
+	@p18 date,
+	@p19 nvarchar(27),
+	@p20 varchar(8000),
+	@p21 decimal(19, 6),
+	@p22 decimal(19, 6),
+	@p23 varchar(2),
+	@p24 decimal(19, 6),
+	@p25 decimal(19, 6),
+	@p26 decimal(19, 6),
+	@p27 varchar(8000),
+	@p28 decimal(19, 6),
+	@p29 decimal(19, 6),
+	@p30 decimal(19, 6),
+	@p31 varchar(8000),
+	@p32 varchar(8000),
+	@p33 varchar(2),
+	@p34 decimal(9, 2),
+	@p35 decimal(9, 2),
+	@p36 varchar(8000),
+	@p37 varchar(8000),
+	@p38 varchar(8000),
+	@p39 varchar(8000),
+	@p40 varchar(4),
+	@p41 decimal(19, 6),
+	@p42 decimal(19, 6),
+	@p43 decimal(19, 6),
+	@p44 decimal(19, 6),
+	@p45 decimal(19, 2),
+	@p46 decimal(19, 6),
+	@p47 varchar(8000),
+	@p48 varchar(8000),
+	@p49 tinyint,
+	@p50 decimal(19, 6),
+	@p51 decimal(19, 6),
+	@p52 bit,
+	@p53 tinyint,
+	@p54 tinyint,
+	@p55 int,
+	@p56 int,
+	@p57 int,
+	@p58 date,
+	@p59 int,
+	@p60 bit,
+	@p61 int,
+	@p62 int,
+	@p63 bit,
+	@p64 varchar(7),
+	@p65 varchar(7),
+	@p66 smallint,
+	@p67 decimal(19, 6),
+	@p68 decimal(19, 6),
+	@p69 decimal(19, 6),
+	@p70 decimal(19, 6),
+	@p71 decimal(9, 2),
+	@p72 int,
+	@p73 int,
+	@p74 int,
+	@p75 int,
+	@p76 date,
+	@p77 smallint,
+	@p78 date,
+	@p79 smallint,
+	@p80 bit,
+	@p81 bit
+)
+INSERT INTO
+	[dbo].[CliDocLin] (
+		[LinNum],--		@p1,
+		[LinStat],--		@p2,
+		[LinLavStadio],--		@p3,
+		[LinStatFrom],--		@p4,
+		[LinSaldo],--		@p5,
+		[QtaEvs],--		@p6,
+		[QtaEvs2],--		@p7,
+		[LinOmg],--		@p8,
+		[PrdCod],--		@p9,
+		[PrdCod2],--		@p10,
+		[ForCod],--		@p11,
+		[PrdForCod],--		@p12,
+		[PrzAcq],--		@p13,
+		[PrdParams],--		@p14,
+		[PrdSerial],--		@p15,
+		[PrdLotto],--		@p16,
+		[PrdDtaMake],--		@p17,
+		[PrdDtaCns],--		@p18,
+		[PrdDes],--		@p19,
+		[PrdUm2],--		@p20,
+		[QtaUm2],--		@p21,
+		[PrdQtaCnsNow],--		@p22,
+		[PrdUm],--		@p23,
+		[PrdQta],--		@p24,
+		[PrdQta2],--		@p25,
+		[PrdPrz],--		@p26,
+		[PrdSc],--		@p27,
+		[PrdPrz2],--		@p28,
+		[PrdAdd],--		@p29,
+		[TotPrz2],--		@p30,
+		[LinRif],--		@p31,
+		[LinType],--		@p32,
+		[IvaCod],--		@p33,
+		[IvaAlq],--		@p34,
+		[PrvAlq],--		@p35,
+		[PrvAgeCod],--		@p36,
+		[CptCnt],--		@p37,
+		[CdcModel],--		@p38,
+		[CdcCommessa],--		@p39,
+		[PrzLstCod],--		@p40,
+		[PrzLst],--		@p41,
+		[TotPrz],--		@p42,
+		[TotPrz2C],--		@p43,
+		[TotPrz2S],--		@p44,
+		[TotDivisaP],--		@p45,
+		[TotQta2],--		@p46,
+		[Info],--		@p47,
+		[InfoExt],--		@p48,
+		[PrdUso],--		@p49,
+		[Tm],--		@p50,
+		[TmCalc],--		@p51,
+		[LinMP],--		@p52,
+		[LinRistFrom],--		@p53,
+		[DocTipFrom],--		@p54,
+		[UniqFrom],--		@p55,
+		[UniqStp],--		@p56,
+		[UniqStpGrp],--		@p57,
+		[UniqStpDta],--		@p58,
+		[UniqLinFrom],--		@p59,
+		[MustSpool],--		@p60,
+		[ElabNum],--		@p61,
+		[ElabLavNum],--		@p62,
+		[SpedMagMoved],--		@p63,
+		[FormCod],--		@p64,
+		[DibaCod],--		@p65,
+		[OffCod],--		@p66,
+		[OffQta],--		@p67,
+		[OffMinFt],--		@p68,
+		[OffMinFt1],--		@p69,
+		[OffMinFt2],--		@p70,
+		[OffPrvFix],--		@p71,
+		[Uniq],--		@p72,
+		[UniqDoc],--		@p73,
+		[Uniq2],--		@p74,
+		[UniqDoc2],--		@p75,
+		[RowCreate],--		@p76,
+		[RowUserID],--		@p77,
+		[RowChange],--		@p78,
+		[RowChangeUserID],--		@p79,
+		[RowLocked],--		@p80,
+		[RowPrinted]--		@p81
+	)
+VALUES
+	(
+		@p1,
+		@p2,
+		@p3,
+		@p4,
+		@p5,
+		@p6,
+		@p7,
+		@p8,
+		@p9,
+		@p10,
+		@p11,
+		@p12,
+		@p13,
+		@p14,
+		@p15,
+		@p16,
+		@p17,
+		@p18,
+		@p19,
+		@p20,
+		@p21,
+		@p22,
+		@p23,
+		@p24,
+		@p25,
+		@p26,
+		@p27,
+		@p28,
+		@p29,
+		@p30,
+		@p31,
+		@p32,
+		@p33,
+		@p34,
+		@p35,
+		@p36,
+		@p37,
+		@p38,
+		@p39,
+		@p40,
+		@p41,
+		@p42,
+		@p43,
+		@p44,
+		@p45,
+		@p46,
+		@p47,
+		@p48,
+		@p49,
+		@p50,
+		@p51,
+		@p52,
+		@p53,
+		@p54,
+		@p55,
+		@p56,
+		@p57,
+		@p58,
+		@p59,
+		@p60,
+		@p61,
+		@p62,
+		@p63,
+		@p64,
+		@p65,
+		@p66,
+		@p67,
+		@p68,
+		@p69,
+		@p70,
+		@p71,
+		@p72,
+		@p73,
+		@p74,
+		@p75,
+		@p76,
+		@p77,
+		@p78,
+		@p79,
+		@p80,
+		@p81
+	)

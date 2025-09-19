@@ -1,0 +1,812 @@
+/*
+*
+*	CALCOLA TOTALI DOCUMENTO
+*
+*	ItemID: identifica il tipo di riga
+*		-1: riga temporanea
+*		10: dettaglio IVA
+*		20: totali imponibile/IVA
+*		25: totale ivato
+*		26: omaggi
+*		30: totale documento
+*
+*		40: sconto su totale
+*		41: sconto pagamento
+*		50: spese di trasporto
+*		51: spese bancarie
+*		52: spese di bollo
+*		53: spese di imballo
+*		54: spese diverse
+*
+*		60: provvigioni
+*		61: costo vettore
+*		70: dettaglio per tipologia
+*		80: dettaglio per contropartita
+*		90: ritenute alla fonte
+*	-----------------------------------------------
+*	ItemSort: determina l'ordine di visualizzazione
+*
+*
+*/
+CREATE FUNCTION [dbo].[udfDD_Total_calc]
+(
+	@iSession int,
+	@iDocTip tinyint,
+	@iUniqDoc int
+)
+RETURNS @tbTotal TABLE(
+	[ItemID] int,
+	[ItemSort] int NULL,
+	[ItemInfo] varchar(128) NULL,
+	[ItemDes] varchar(128) NULL,
+	[ItemDivisa] varchar(8) NULL,
+	[ItemValue] decimal(19, 2) NULL,
+	[ItemIvaAlq] decimal(19, 2) NULL,
+	[ItemIva] decimal(19, 2) NULL,
+	[ItemCod] varchar(32) NULL,
+	[ItemDivisaP] varchar(8) NULL,
+	[ItemValueP] decimal(19, 2) NULL,
+	[ItemIvaP] decimal(19, 2) NULL,
+	[ItemValueAnteSCT] decimal(19, 2) NULL,
+	[UniqRow] int IDENTITY PRIMARY KEY
+)
+AS
+BEGIN
+
+-- NOTA:
+--	ItemValue, ItemIva sono espressi nella divisa del documento
+--	ItemValueP, ItemIvaP sono espressi in divisa primaria
+--
+Declare @iCount int
+Declare @iItemID int
+Declare @iItemSort int
+Declare @sItemInfo varchar(64)
+Declare @sItemDes varchar(128)
+Declare @iUniqRow int
+
+Declare @dValue decimal(19, 2)
+Declare @dValue1 decimal(19, 2)
+Declare @dValue2 decimal(19, 2)
+Declare @dValue3 decimal(19, 2)
+Declare @sValue varchar(128)
+Declare @iDocElm int
+
+Declare @iAnaType tinyint
+
+Declare @sNumPrefix varchar(8)
+Declare @sNumSuffix varchar(8)
+Declare @sCntRegMod varchar(8)
+
+Declare @sDivisa varchar(8)
+Declare @sDivisaP varchar(8)
+Declare @sIvaCod varchar(8)
+Declare @dIvaAlq decimal(19, 2)
+Declare @sDocIvaCod varchar(8)
+Declare @dDocIvaAlq decimal(19, 2)
+Declare @sTopIvaCod varchar(8)
+Declare @dTopIvaAlq decimal(19, 2)
+
+Declare @dCambio decimal(19, 6)
+Declare @dSctTot decimal(19, 2)
+Declare @dSctPag decimal(19, 2)
+Declare @dSpTra decimal(19, 2)
+Declare @dSpRiba decimal(19, 2)
+Declare @dSpBolli decimal(19, 2)
+Declare @dSpVarie decimal(19, 2)
+Declare @dSpImballo decimal(19, 2)
+
+Declare @dCaPre decimal(9, 2)
+
+Declare @dTotMerce decimal(19, 2)
+Declare @dTotPrv decimal(19, 2)
+Declare @dTotOmg decimal(19, 2)
+Declare @dTotOmgP decimal(19, 2)
+Declare @dVetComp decimal(19, 2)
+Declare @dSconti decimal(19, 2)
+Declare @dScontiPc decimal(19, 2)
+
+Declare @dRafTot decimal(19, 2)
+-- -------------------------------------------------
+-- x TEST
+-- Set @iDocTip = 'FA'
+-- Set @iUniqDoc = 97727
+-- Set @sCntRegMod = '133'
+-- Set @sDocIvaCod = 'ESE'
+-- Set @dDocIvaAlq = 2
+
+-- ====================================================
+Set @iAnaType = dbo.[udfDocTip_AnaType](@iDocTip)
+
+If @iDocTip = 30 
+BEGIN
+	-- CARRELLO
+	
+	Set @iAnaType = 0
+	
+	Select @iAnaType = AnaType
+	From dbo.[BasketDoc]
+	Where Uniq = @iUniqDoc
+
+	Set @iAnaType = IsNull(@iAnaType, 0)
+END
+
+-- ====================================================
+-- valori/totali da testata/dettaglio documento
+--
+
+Select
+	@sCntRegMod = CntRegMod,
+	@sNumPrefix = NumPrefix,
+	@sNumSuffix = NumSuffix,
+	@sDivisa = Divisa,
+	@dCambio = Cambio,
+	@sDocIvaCod = DocIvaCod,
+	@dSctTot = SctTot,
+	@dSctPag = SctPag,
+	@dSpTra = SpTra,
+	@dSpRiba = SpRiba,
+	@dSpBolli = SpBolli,
+	@dSpVarie = SpVarie,
+	@dSpImballo = SpImballo,
+	@dVetComp = VetComp,
+	@dCaPre = CaPre,
+	@dTotMerce = TotMerce,
+	@dTotPrv = TotPrv,
+	@dTotOmg = TotOmg	
+From dbo.[udfDD_Total_calc_TOT](@iSession, @iDocTip, @iUniqDoc)
+
+Set @sCntRegMod = IsNull(@sCntRegMod, '')
+If @sCntRegMod <> ''
+Begin
+	Select @iCount = COUNT(*)
+	From dbo.[CntRegModLin]
+	Where ParentID = @sCntRegMod
+
+	Set @iCount = IsNull(@iCount, 0)
+	If @iCount < 11
+		Set @sCntRegMod = ''
+End
+
+If @sCntRegMod = ''
+	Set @sCntRegMod = dbo.[udfDD_CntRegMod](@iDocTip, @sNumPrefix, @sNumSuffix)
+
+Set @sCntRegMod = IsNull(@sCntRegMod, '')
+If @sCntRegMod = ''
+	RETURN
+
+-- ====================================================
+Set @dDocIvaAlq = 0
+Set @sDocIvaCod = IsNull(@sDocIvaCod, '')
+If @sDocIvaCod <> ''
+	Set @dDocIvaAlq = dbo.[udfIvaCod_ALQ](@sDocIvaCod)
+	
+-- ==== INIZIO IVA ================================================
+-- dbo.[udfRC_RegMod_DocElm](@sCntRegMod, @iDocElm)
+-- dbo.[udfIvaCod_ALQ](@sIvaCod)
+--
+-- 0	Cliente (fornitore se documento ricevuto da fornitore)
+-- 1	Merce (ricavi, costo se documento ricevuto da fornitore)
+-- 2	IVA a debito/credito
+-- 3	Sconto su totale
+-- 4	Sconto pagamento
+-- 5	Omaggi
+-- 6	Spese di trasporto
+-- 7	Spese bancarie
+-- 8	Spese di bollo
+-- 9	Spese diverse
+-- 10	Spese di imballo
+--
+-- SctTot
+-- SctPag
+--
+-- 6 SpTra
+-- 7 SpRiba
+-- 8 SpBolli
+-- 9 SpVarie
+-- 10 SpImballo
+--
+
+Set @iItemID = -1
+Set @iItemSort = 1
+Set @sItemInfo = 'I.V.A.'
+-- --------------------------------------------------------------
+-- inserisce righe IVA da dettaglio merce
+--
+
+INSERT @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemIvaAlq, ItemCod)
+Select 
+	@iItemID, @iItemSort, @sItemInfo,
+	ItemValue, ItemIvaAlq, ItemCod
+From dbo.[udfDD_Total_calc_IVA](@iSession, @iDocTip, @iUniqDoc, @sDocIvaCod, @dDocIvaAlq)
+Order By ItemCod
+
+-- --------------------------------------------------------------
+-- ricava codice e aliquota più alta presente nel documento
+--
+Select TOP 1 @sTopIvaCod = ItemCod, @dTopIvaAlq = ItemIvaAlq
+From @tbTotal
+Order By ItemIvaAlq DESC
+
+-- --------------------------------------------------------------
+-- righe IVA spese accessorie
+--
+-- Per le righe relative alle spese (6, 7, 8, 9, 10) il codice IVA è facoltativo.
+-- Se assente, alle spese sarà applicata l'aliquota IVA più alta presente nel documento.
+-- Eventuali codici IVA di addebito (non di esenzione),
+-- in presenza di documento tutto esente IVA, verranno sostituiti dal codice di esenzione.
+--
+-- 6 SpTra
+-- 7 SpRiba
+-- 8 SpBolli
+-- 9 SpVarie
+--10 SpImballo
+--
+Set @dSpTra = IsNull(@dSpTra, 0)
+Set @dValue = @dSpTra
+Set @iDocElm = 6
+If @dValue  <> 0
+BEGIN
+	Set @sIvaCod = ''
+	Select @sIvaCod = IvaCod
+	From dbo.[udfRC_RegMod_DocElm](@sCntRegMod, @iDocElm)
+	Set @sIvaCod = IsNull(@sIvaCod, '')
+	If @sIvaCod <> ''
+	Begin
+		Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		--		If (@sDocIvaCod <> '') And (dbo.[udfIvaCod_TIPO](@sIvaCod) = 0)
+		--		Begin
+		--			Set @sIvaCod = @sDocIvaCod
+		--			Set @dIvaAlq = @dDocIvaAlq
+		--		End
+	End
+	Else
+	Begin
+		Set @sIvaCod = @sTopIvaCod
+		Set @dIvaAlq = @dTopIvaAlq
+	End
+
+	INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+				ItemValue, ItemIvaAlq, ItemIva,
+				ItemCod, ItemDes
+				)
+	Select @iItemID, @iItemSort, @sItemInfo,
+			@dValue As ItemValue,
+			@dIvaAlq As ItemIvaAlq,
+			NULL As ItemIva,
+			@sIvaCod As ItemCod,
+			NULL As ItemDes
+END
+
+Set @dSpRiba = IsNull(@dSpRiba, 0)
+Set @dValue = @dSpRiba
+Set @iDocElm = 7
+If @dValue  <> 0
+BEGIN
+	Set @sIvaCod = ''
+	Select @sIvaCod = IvaCod
+	From dbo.[udfRC_RegMod_DocElm](@sCntRegMod, @iDocElm)
+	Set @sIvaCod = IsNull(@sIvaCod, '')
+	If @sIvaCod <> ''
+	Begin
+		Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		--		If (@sDocIvaCod <> '') And (dbo.[udfIvaCod_TIPO](@sIvaCod) = 0)
+		--		Begin
+		--			Set @sIvaCod = @sDocIvaCod
+		--			Set @dIvaAlq = @dDocIvaAlq
+		--		End
+	End
+	Else
+	Begin
+		Set @sIvaCod = @sTopIvaCod
+		Set @dIvaAlq = @dTopIvaAlq
+	End
+
+	INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+				ItemValue, ItemIvaAlq, ItemIva,
+				ItemCod, ItemDes
+				)
+	Select @iItemID, @iItemSort, @sItemInfo,
+			@dValue As ItemValue,
+			@dIvaAlq As ItemIvaAlq,
+			NULL As ItemIva,
+			@sIvaCod As ItemCod,
+			NULL As ItemDes
+END
+
+Set @dSpBolli = IsNull(@dSpBolli, 0)
+Set @dValue = @dSpBolli
+Set @iDocElm = 8
+If @dValue  <> 0
+BEGIN
+	Set @sIvaCod = ''
+	Select @sIvaCod = IvaCod
+	From dbo.[udfRC_RegMod_DocElm](@sCntRegMod, @iDocElm)
+	Set @sIvaCod = IsNull(@sIvaCod, '')
+	If @sIvaCod <> ''
+	Begin
+		Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		--		If (@sDocIvaCod <> '') And (dbo.[udfIvaCod_TIPO](@sIvaCod) = 0)
+		--		Begin
+		--			Set @sIvaCod = @sDocIvaCod
+		--			Set @dIvaAlq = @dDocIvaAlq
+		--		End
+	End
+	Else
+	Begin
+		Set @sIvaCod = @sTopIvaCod
+		Set @dIvaAlq = @dTopIvaAlq
+	End
+
+	INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+				ItemValue, ItemIvaAlq, ItemIva,
+				ItemCod, ItemDes
+				)
+	Select @iItemID, @iItemSort, @sItemInfo,
+			@dValue As ItemValue,
+			@dIvaAlq As ItemIvaAlq,
+			NULL As ItemIva,
+			@sIvaCod As ItemCod,
+			NULL As ItemDes
+END
+
+Set @dSpVarie = IsNull(@dSpVarie, 0)
+Set @dValue = @dSpVarie
+Set @iDocElm = 9
+If @dValue  <> 0
+BEGIN
+	Set @sIvaCod = ''
+	Select @sIvaCod = IvaCod
+	From dbo.[udfRC_RegMod_DocElm](@sCntRegMod, @iDocElm)
+	Set @sIvaCod = IsNull(@sIvaCod, '')
+	If @sIvaCod <> ''
+	Begin
+		Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		--		If (@sDocIvaCod <> '') And (dbo.[udfIvaCod_TIPO](@sIvaCod) = 0)
+		--		Begin
+		--			Set @sIvaCod = @sDocIvaCod
+		--			Set @dIvaAlq = @dDocIvaAlq
+		--		End
+	End
+	Else
+	Begin
+		Set @sIvaCod = @sTopIvaCod
+		Set @dIvaAlq = @dTopIvaAlq
+	End
+
+	INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+				ItemValue, ItemIvaAlq, ItemIva,
+				ItemCod, ItemDes
+				)
+	Select @iItemID, @iItemSort, @sItemInfo,
+			@dValue As ItemValue,
+			@dIvaAlq As ItemIvaAlq,
+			NULL As ItemIva,
+			@sIvaCod As ItemCod,
+			NULL As ItemDes
+END
+
+
+Set @dSpImballo = IsNull(@dSpImballo, 0)
+Set @dValue = @dSpImballo
+Set @iDocElm = 10
+If @dValue <> 0
+BEGIN
+	Set @sIvaCod = ''
+	Select @sIvaCod = IvaCod
+	From dbo.[udfRC_RegMod_DocElm](@sCntRegMod, @iDocElm)
+	Set @sIvaCod = IsNull(@sIvaCod, '')
+	If @sIvaCod <> ''
+	Begin
+		Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		--		If (@sDocIvaCod <> '') And (dbo.[udfIvaCod_TIPO](@sIvaCod) = 0)
+		--		Begin
+		--			Set @sIvaCod = @sDocIvaCod
+		--			Set @dIvaAlq = @dDocIvaAlq
+		--		End
+	End
+	Else
+	Begin
+		Set @sIvaCod = @sTopIvaCod
+		Set @dIvaAlq = @dTopIvaAlq
+	End
+
+	INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+				ItemValue, ItemIvaAlq, ItemIva,
+				ItemCod, ItemDes
+				)
+	Select @iItemID, @iItemSort, @sItemInfo,
+			@dValue As ItemValue,
+			@dIvaAlq As ItemIvaAlq,
+			NULL As ItemIva,
+			@sIvaCod As ItemCod,
+			NULL As ItemDes
+END
+
+
+Select @dCaPre = (Sum(ItemValue) / 100 * IsNull(@dCaPre, 0))
+From @tbTotal
+Where ItemID = -1
+Set @dValue = @dCaPre
+Set @iDocElm = 11
+If @dValue <> 0
+BEGIN
+	Set @sIvaCod = @sTopIvaCod
+	Set @dIvaAlq = @dTopIvaAlq
+
+	INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+				ItemValue, ItemIvaAlq, ItemIva,
+				ItemCod, ItemDes
+				)
+	Select @iItemID, @iItemSort, @sItemInfo,
+			@dValue As ItemValue,
+			@dIvaAlq As ItemIvaAlq,
+			NULL As ItemIva,
+			@sIvaCod As ItemCod,
+			NULL As ItemDes
+END
+
+
+-- --------------------------------------------------------------
+-- raggruppa IVA
+--
+Set @iItemID = 10
+INSERT @tbTotal(ItemID, ItemSort, ItemInfo,
+			ItemValue, ItemIvaAlq, ItemIva,
+			ItemCod, ItemDes
+			)
+Select @iItemID, @iItemSort, @sItemInfo,
+		Sum(ItemValue) As ItemValue,
+		ItemIvaAlq,
+		NULL As ItemIva,
+		ItemCod,
+		NULL As ItemDes
+From @tbTotal
+Where ItemID = -1
+Group By ItemCod, ItemIvaAlq
+
+-- --------------------------------------------------------------
+-- elimina righe IVA raggruppate
+--
+DELETE @tbTotal
+Where ItemID = -1
+
+-- --------------------------------------------------------------
+-- applica sconti totale/pagamento su imponibili raggruppati
+--
+--SctTot
+--SctPag
+Set @dTotMerce = IsNull(@dTotMerce, 0)
+Set @dTotPrv = IsNull(@dTotPrv, 0)
+Set @dSctTot = IsNull(@dSctTot, 0)
+Set @dSctPag = IsNull(@dSctPag, 0)
+
+Set @dSconti = @dSctTot + @dSctPag
+If @dSconti <> 0
+BEGIN
+	Set @dScontiPc = dbo.[udfC_Incidenza](@dSconti, @dTotMerce)
+
+	-- calcola il totale imponibile per poi gestire eventuali differenze
+	Select @dValue1 = Sum(ItemValue)
+	From @tbTotal
+	Where ItemID = 10
+
+	-- diminuisce imponibili dell'incidenza degli sconti
+	Update @tbTotal Set
+		ItemValueAnteSCT = ItemValue
+		, ItemValue = IsNull(ItemValue, 0) - (IsNull(ItemValue, 0) * @dScontiPc / 100.00)
+	Where ItemID = 10
+
+	-- calcola il totale imponibile risultante dall'applicazione degli sconti
+	Select @dValue2 = Sum(ItemValue)
+	From @tbTotal
+	Where ItemID = 10
+
+	Set @dValue1 = IsNull(@dValue1, 0) - @dSconti
+	Set @dValue2 = IsNull(@dValue2, 0)
+	Set @dValue3 = @dValue1 - @dValue2
+	If @dValue3 <> 0
+	Begin
+		-- applica eventuale differenza sull'imponibile più alto
+		Select TOP 1 @iUniqRow = UniqRow
+		From @tbTotal
+		Where ItemID = 10
+		Order By ItemValue DESC
+
+		Update @tbTotal Set
+			ItemValue = IsNull(ItemValue, 0) + @dValue3
+		Where UniqRow = @iUniqRow
+	End
+
+	-- riduce provvigioni
+	If @dTotPrv <> 0
+		Set @dTotPrv = IsNull(@dTotPrv, 0) - (IsNull(@dTotPrv, 0) * @dScontiPc / 100.00)
+END
+
+
+-- --------------------------------------------------------------
+-- calcola importi IVA
+--
+Update @tbTotal Set
+	ItemIva = IsNull(ItemValue, 0) * IsNull(ItemIvaAlq, 0) / 100.00,
+	ItemDes = (
+		Select ItemDes
+		From dbo.[IvaTab]
+		Where ItemID = TB.ItemCod
+		)
+From @tbTotal TB
+Where ItemID = 10
+
+-- ==== FINE IVA ================================================
+
+-- ==== INIZIO TOTALI  ================================================
+Select
+	@dValue1 = Sum(IsNull(ItemValue, 0)),
+	@dValue2 = Sum(IsNull(ItemIva, 0))
+From @tbTotal
+Where ItemID = 10
+
+Set @dValue3 = IsNull(@dValue1, 0) + IsNull(@dValue2, 0)
+Set @iItemSort = 100
+Set @sItemInfo = 'TOTALI'
+
+-- 20: totali imponibile/IVA
+Set @iItemID = 20
+Set @sItemDes = 'Imponibile - I.V.A.'
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemIva, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue1, @dValue2, @sItemDes)
+
+-- 23: totali imponibile con cassa previdenziale
+--If @dCaPre > 0
+--Begin
+--	Set @iItemID = 23
+--	Set @sItemDes = 'Imponibile con cassa prev.'
+--	Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+--	Values(@iItemID, @iItemSort, @sItemInfo, @dValue1, @sItemDes)
+--End
+
+-- 25: totale ivato
+Set @iItemID = 25
+Set @sItemDes = 'Totale con I.V.A.'
+Set @dValue = @dValue3
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+-- 26: omaggi
+Set @iItemID = 26
+Set @sItemDes = 'Totale omaggi'
+Set @dValue = @dTotOmg
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+-- 30: totale documento
+Set @iItemID = 30
+Set @sItemDes = 'TOTALE documento'
+Set @dValue = IsNull(@dValue3, 0) - IsNull(@dTotOmg, 0)
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+-- ==== FINE TOTALI ================================================
+
+-- ==== INIZIO SCONTI, SPESE, PROVVIGIONI ==========================
+-- 40: sconto su totale
+-- 41: sconto pagamento
+Set @iItemSort = 110
+Set @sItemInfo = 'SCONTI'
+Set @iItemID = 40
+Set @sItemDes = 'Sconto su totale'
+Set @dValue = @dSctTot
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+Set @iItemID = 41
+Set @sItemDes = 'Sconto pagamento'
+Set @dValue = @dSctPag
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+-- 50: spese di trasporto
+-- 51: spese bancarie
+-- 52: spese di bollo
+-- 53: spese di imballo
+-- 54: spese diverse
+Set @sItemInfo = 'SPESE'
+Set @iItemID = 50
+Set @iItemSort = 121
+Set @sItemDes = 'Spese trasporto'
+Set @dValue = @dSpTra
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+Set @iItemID = 51
+Set @sItemDes = 'Spese bancarie'
+Set @iItemSort = 122
+Set @dValue = @dSpRiba
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+Set @iItemID = 52
+Set @iItemSort = 123
+Set @sItemDes = 'Spese bolli'
+Set @dValue = @dSpBolli
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+Set @iItemID = 53
+Set @iItemSort = 120
+Set @sItemDes = 'Spese imballo'
+Set @dValue = @dSpImballo
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+Set @iItemID = 54
+Set @iItemSort = 124
+Set @sItemDes = 'Spese diverse'
+Set @dValue = @dSpVarie
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+If @iAnaType = 1
+Begin
+	-- 60: provvigioni
+	Set @sItemInfo = 'PROVVIGIONI'
+	Set @iItemID = 60
+	Set @iItemSort = 130
+	Set @sItemDes = 'Provvigioni agente'
+	Set @dValue = @dTotPrv
+	Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+	Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+End
+
+-- 61: costo vettore
+Set @sItemInfo = 'VETTORE'
+Set @iItemID = 61
+Set @iItemSort = 131
+Set @sItemDes = 'Costo vettore'
+Set @dValue = @dVetComp
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+
+-- 65: cassa previdenziale
+If @dCaPre > 0
+Begin
+	Set @sItemInfo = 'CONTRIBUTI'
+	Set @iItemID = 65
+	Set @iItemSort = 132
+	Set @sItemDes = 'Cassa previdenziale'
+	Set @dValue = @dCaPre
+	Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+	Values(@iItemID, @iItemSort, @sItemInfo, @dValue, @sItemDes)
+End
+
+
+-- ==== FINE SCONTI SCONTI, SPESE, PROVVIGIONI ================================================
+
+-- ==== INIZIO TOTALI per TIPOLOGIA ================================================
+-- 70: dettaglio per tipologia
+Set @iItemSort = 150
+Set @sItemInfo = 'TIPOLOGIE'
+Set @iItemID = 70
+
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemCod, ItemDes)
+Select 
+	@iItemID As ItemID, @iItemSort As ItemSort, @sItemInfo As ItemInfo,
+	ItemValue, ItemCod, ItemDes
+From dbo.[udfDD_Total_calc_TIP](@iSession, @iDocTip, @iUniqDoc)
+Order By ItemCod
+
+If @dScontiPc <> 0
+Begin
+	-- diminuisce gli importi dell'incidenza degli sconti
+	Update @tbTotal Set
+		ItemValue = IsNull(ItemValue, 0) - (IsNull(ItemValue, 0) * @dScontiPc / 100.00)
+	Where ItemID = 70
+End
+
+-- ==== FINE TOTALI per TIPOLOGIA ================================================
+
+-- ==== INIZIO TOTALI per CONTROPARTITA ================================================
+-- 80: dettaglio per contropartita
+Set @iItemSort = 160
+Set @sItemInfo = 'CONTROPARTITE'
+Set @iItemID = 80
+
+Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemCod, ItemDes)
+Select 
+	@iItemID As ItemID, @iItemSort As ItemSort, @sItemInfo As ItemInfo,
+	ItemValue, ItemCod, ItemDes
+From dbo.[udfDD_Total_calc_CPT](@iSession, @iDocTip, @iUniqDoc, @iAnaType, @sCntRegMod)
+Order By ItemCod
+
+-- ==== FINE TOTALI per CONTROPARTITA ================================================
+
+-- ==== INIZIO VALORI IN DIVISA PRIMARIA =============================================
+Set @sDivisaP = dbo.[udfSysDivisa]('')
+
+Update @tbTotal Set ItemDivisa = @sDivisa, ItemDivisaP = @sDivisaP
+If @sDivisa = @sDivisaP
+Begin
+	Update @tbTotal Set ItemValueP = ItemValue, ItemIvaP = ItemIva
+End
+
+Else
+
+Begin
+	Set @dTotOmgP = dbo.[udfCambioDivisa](1, @sDivisa, @dCambio, IsNull(@dTotOmg, 0), '')
+
+	Update @tbTotal Set
+		ItemValueP = dbo.[udfCambioDivisa](1, @sDivisa, @dCambio, IsNull(ItemValue, 0), '')
+	Where IsNull(ItemValue, 0) <> 0
+
+	Update @tbTotal Set
+		ItemIvaP = IsNull(ItemValueP, 0) * IsNull(ItemIvaAlq, 0) / 100.00
+	Where ItemID = 10
+
+	Select
+		@dValue1 = Sum(IsNull(ItemValueP, 0)),
+		@dValue2 = Sum(IsNull(ItemIvaP, 0))
+	From @tbTotal
+	Where ItemID = 10
+	Set @dValue3 = IsNull(@dValue1, 0) + IsNull(@dValue2, 0)
+
+	-- 20: totali imponibile/IVA
+	Update @tbTotal Set ItemValueP = @dValue1, ItemIvaP = @dValue2
+	Where ItemID = 20
+
+	-- 25: totale ivato
+	Update @tbTotal Set ItemValueP = @dValue3
+	Where ItemID = 25
+
+	-- 26: omaggi
+	Update @tbTotal Set ItemValueP = @dTotOmgP
+	Where ItemID = 26
+
+	-- 30: totale documento
+	Set @dValue = IsNull(@dValue3, 0) - IsNull(@dTotOmgP, 0)
+	Update @tbTotal Set ItemValueP = @dValue
+	Where ItemID = 30
+End
+-- ==== FINE VALORI IN DIVISA PRIMARIA ===============================================
+
+-- ==== INIZIO RITENUTE ALLA FONTE =============================================
+Set @dRafTot  = 0
+Select @dRafTot = Sum(RafValue)
+From dbo.[DocRaf]
+Where DocTip = @iDocTip 
+	And UniqDoc = @iUniqDoc
+
+Set @dRafTot = IsNull(@dRafTot, 0)
+IF @dRafTot <> 0
+Begin
+	Set @iItemSort = 190
+	Set @sItemInfo = 'RITENUTE'
+	Set @iItemID = 90
+	
+	Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemCod, ItemDes)
+	Select 
+		@iItemID As ItemID, @iItemSort As ItemSort, @sItemInfo As ItemInfo,
+		-RAF.RafValue As ItemValue,
+		RAF.RafTaxID As ItemCod, 
+		'Ritenuta ' + Case IsNull(TAX.ItemType, 0) When 9 Then 'ENASARCO' Else 'tributo ' + RAF.RafTaxID End
+	From dbo.[DocRaf] RAF
+	Left Join dbo.[CntTaxes] TAX On TAX.ItemID = RAF.RafTaxID
+	Where DocTip = @iDocTip 
+		And UniqDoc = @iUniqDoc
+	Order By RafTaxID
+	
+	Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+	Values(91, 191, @sItemInfo, -@dRafTot, 'Totale ritenute')
+
+	Set @dValue = 0
+	Select @dValue = ItemValue
+	From @tbTotal
+	Where ItemID = 30
+
+	Set @dValue = IsNull(@dValue, 0) - IsNull(@dRafTot, 0)
+	Insert @tbTotal(ItemID, ItemSort, ItemInfo, ItemValue, ItemDes)
+	Values(92, 192, @sItemInfo, @dValue, 'NETTO A PAGARE')	
+End
+	
+-- ==== FINE RITENUTE ALLA FONTE =============================================
+	
+	RETURN
+END

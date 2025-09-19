@@ -1,0 +1,60 @@
+Insert Into [BpProve].dbo.[PrdFormLinRange_Pers]
+Select * From [BpMondosole].dbo.[PrdFormLinRange_Pers]
+
+Insert Into [BpProve].dbo.[PrdFormLin]
+Select * From [BpMondosole].dbo.[PrdFormLin] A
+Where A.FormCod not in (Select FormCOd From [BpProve].dbo.[PrdForm])
+
+Insert Into [BpProve].dbo.[PrdForm]
+Select * From [BpMondosole].dbo.[PrdForm] A
+Where A.FormCod not in (Select FormCOd From [BpProve].dbo.[PrdForm])
+
+Insert Into [BpProve].dbo.[PrdFormTabLin]
+Select * From [BpMondosole].dbo.[PrdFormTabLin] A
+Where A.tabcod not in (Select tabcod From [BpProve].dbo.[PrdFormTab])
+
+Insert Into [BpProve].dbo.[PrdFormTab]
+Select * From [BpMondosole].dbo.[PrdFormTab] A
+Where A.tabcod not in (Select tabcod From [BpProve].dbo.[PrdFormTab])
+
+Insert Into [BpProve].dbo.[PrdForHistory]
+Select * From [BpMondosole].dbo.[PrdForHistory]
+where prdcod not in (Select prdcod From [BpProve].dbo.[PrdForHistory])
+
+Insert Into [BpProve].dbo.[PrdFor]
+Select * From [BpMondosole].dbo.[PrdFor]
+where prdcod not in (Select prdcod From [BpProve].dbo.[PrdFor])
+
+Insert Into [BpProve].dbo.[PrdPrz]
+Select * From [BpMondosole].dbo.[PrdPrz]
+where prdcod not in (Select prdcod From [BpProve].dbo.[PrdPrz])
+
+Insert Into [BpProve].dbo.[PrdMin]
+Select * From [BpMondosole].dbo.[PrdMin]
+where prdcod not in (Select prdcod From [BpProve].dbo.[PrdMin])
+
+Insert Into [BpProve].dbo.[Prdmag]
+Select * From [BpMondosole].dbo.[Prdmag]
+where prdcod not in (Select prdcod From [BpProve].dbo.[Prdmag])
+
+Insert Into [BpProve].dbo.[Mixanaalias]
+Select * From [BpMondosole].dbo.[Mixanaalias] 
+where itemid not in (Select itemid From [BpProve].dbo.[Mixanaalias])
+
+Insert Into [BpProve].dbo.[PrdAna]
+Select * From [BpMondosole].dbo.[PrdAna] 
+where prdcod not in (Select prdcod From [BpProve].dbo.[PrdAna])
+
+update t1
+set t1.PrdPrz = t2.PrdPrz
+from [BpProve].dbo.[PrdPrz] t1
+    inner join [BpMondosole].dbo.[PrdPrz] t2 on
+        t1.prdcod = t2.prdcod And t1.LstCod = t2.LstCod 
+		And t1.Mis1 = t2.Mis1 And t1.Mis2 = t2.Mis2 And t1.PrdPrz <> t2.PrdPrz
+
+update t1
+set t1.PrdPrz = t2.PrdPrz
+from [BpProve].dbo.[PrdPrz] t1
+    inner join [BpMondosole].dbo.[PrdPrz] t2 on
+        t1.prdcod = t2.prdcod And t1.LstCod = t2.LstCod 
+		And t1.Mis1 is null And t1.Mis2 is null And t1.PrdPrz <> t2.PrdPrz

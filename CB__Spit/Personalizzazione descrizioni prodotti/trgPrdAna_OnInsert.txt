@@ -1,0 +1,30 @@
+/* 
+*
+*
+*
+*/
+CREATE TRIGGER [trgPrdAna_OnInsert]
+ON dbo.[PrdAna]
+FOR INSERT
+AS
+SET NOCOUNT ON
+
+If (Select PrdCod From inserted) Like '%.%' And (Select PrdCod From inserted) Not Like '.%'
+Begin
+	Declare @sPrdCod varchar(32)
+	Declare @sPrdInfo varchar(MAX)
+	Declare @sCrLf char(2) = Char(13) + Char(10)
+	
+	Select @sPrdCod = RTRIM(LTRIM(PrdCod)), @sPrdInfo = RTRIM(LTRIM(PrdDes)) From inserted
+	Set @sPrdInfo = ISNULL(@sPrdInfo,'')
+	
+	While(@sPrdCod Like '%.%' And @sPrdCod Not Like '.%')
+	Begin
+		Set @sPrdCod = LEFT(@sPrdCod, LEN(@sPrdCod) - CHARINDEX('.',REVERSE(@sPrdCod)))
+		
+		Select @sPrdInfo = Concat(RTRIM(LTRIM(ISNULL(PrdDes,''))),@sCrLf,@sPrdInfo) 
+		From [PrdAna] Where RTRIM(LTRIM(PrdCod)) = @sPrdCod
+	End
+	
+	Update [PrdAna] Set PrdInfo = @sPrdInfo Where PrdCod = (Select PrdCod From inserted)
+End

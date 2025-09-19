@@ -1,0 +1,152 @@
+/*
+*
+*
+*
+*/
+CREATE TRIGGER [dbo].[trgCliDoc_OnDelete]
+ON [dbo].[CliDoc]
+FOR DELETE
+AS
+SET NOCOUNT ON
+Declare @iMovType tinyint = 1
+Declare @iDocTip tinyint
+Declare @iDocKind tinyint
+
+Declare @iDocUniq int
+Declare @sDocNum varchar(32)
+Declare @tDocDta date
+Declare @sAnaCod varchar(16)
+
+Declare @iCntMovType bit
+Declare @sAttachFrom varchar(32)
+
+Delete dbo.[CliDocPar]
+Where (UniqDoc In(Select Uniq From deleted))
+
+Delete dbo.[CliDocExt]
+Where (UniqDoc In(Select Uniq From deleted))
+
+Delete dbo.[CliDocLin]
+Where (UniqDoc In(Select Uniq From deleted))
+
+Delete dbo.[CliDocEx_Pers]
+Where (Uniq In(Select Uniq From deleted))
+
+--
+-- Package - imballo
+-- EleMerce
+--
+Update dbo.[Package] Set
+	Status = 2,
+	ShipDocTip = NULL,
+	ShipDocUniq = NULL
+Where (ShipDocUniq In(Select Uniq From deleted))
+	And (ShipDocTip In(13, 14, 15, 17))
+
+Update dbo.[PackageBoxes] Set
+	ShipDocTip = NULL,
+	ShipDocUniq = NULL
+Where (ShipDocUniq In(Select Uniq From deleted))
+	And (ShipDocTip In(13, 14, 15, 17))
+
+Update dbo.[EleMerce] Set
+	ShipDocTip = NULL,
+	ShipDocUniq = NULL
+Where (ShipDocUniq In(Select Uniq From deleted))
+	And (ShipDocTip In(13, 14, 15, 17))
+
+--
+-- VARIE in base a DocTip
+--
+Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+Select DocTip, DocKind, Uniq, DocNum, DocDta, AnaCod
+From deleted
+
+Open [cCursor]
+Fetch Next From [cCursor] Into @iDocTip, @iDocKind, @iDocUniq, @sDocNum, @tDocDta, @sAnaCod
+While (@@Fetch_Status <> -1)
+Begin
+	Set @sAttachFrom = dbo.[udfAttachFrom](@iDocTip, 0)
+	Set @iCntMovType = dbo.[udfDocTip_CntMovType](@iDocTip)
+
+	--
+	-- Attach
+	--	
+	Delete dbo.[Attach]
+	Where AttachFrom = @sAttachFrom
+		And (DocID = Cast(@iDocUniq As varchar(32)))
+		And (DocTip = @iDocTip)
+
+	--
+	-- Movimenti magazzino
+	--
+	Delete dbo.[MagMov]
+	Where Uniq In(Select Uniq From dbo.[udfMM_Uniq_list](@iDocTip, @iDocUniq))
+
+	--
+	-- MaintWork
+	--
+	If @iDocTip = 14
+	Begin
+		Update dbo.[MaintWork] Set
+			UniqDDT = NULL
+		Where UniqDDT = @iDocUniq
+	End
+
+	If @iCntMovType <> 0
+	Begin
+		--
+		-- registrazione contabile documento, scadenze
+		--
+		Delete dbo.[CntReg]
+		Where MovType = @iMovType
+			And MovDocTip = @iDocTip
+			And MovDocNum = @sDocNum
+			And MovDocDta = @tDocDta
+			And AnaCod = @sAnaCod
+			
+		--
+		-- RAF - ritenute alla fonte
+		-- FEPA - fatture elettroniche
+		If @iDocTip In(15, 16)
+		Begin				
+			Delete dbo.[DocRaf]
+			Where (DocTip = @iDocTip)
+				And (UniqDoc = @iDocUniq)
+
+			Delete dbo.[FepaDoc]
+			Where (DocUniq = @iDocUniq)		
+		End
+				
+		--
+		-- DdtElabFT
+		-- PosDocElabFT
+		-- MaintFtPlan
+		--
+		If @iDocTip = 15
+		Begin
+			If IsNull(@iDocKind, 0) = 18
+			Begin
+				Delete dbo.[PosDocElabFT]
+				Where (Uniq = @iDocUniq)			
+			End
+			Else
+			Begin
+				Delete dbo.[DdtElabFT]
+				Where (Uniq = @iDocUniq)
+			End
+
+			Update dbo.[MaintFtPlan] Set
+				UniqFT = NULL
+			Where UniqFT = @iDocUniq
+
+			Update dbo.[MaintWork] Set
+				UniqFT = NULL
+			Where UniqFT = @iDocUniq
+		End							
+	End -- @iCntMovType <> 0
+	-- ----------------------------------------------------------
+	Fetch Next From [cCursor] Into @iDocTip, @iDocKind, @iDocUniq, @sDocNum, @tDocDta, @sAnaCod
+End
+Close [cCursor]
+Deallocate [cCursor]

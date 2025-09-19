@@ -1,0 +1,14 @@
+aprire la parte dei report, selezionare un report e cliccare il copia.
+
+dare un nuovo nome al file con un progressivo abbastanza alto per evitare di andare in chiave duplicata.
+cambiare il file di destinazione, nome report in modo tale che sia identico.
+
+mettere la spunta di personalizzazione.
+
+aprire il desginer del file da cui abbiamo copiato ed accedere alla cartella \BEEP\CUSTOM\Report , ordinare per ultima 
+modifica e rinominare il file in cima con il nome del report che abbiamo appena creato. Aprire il file e fare replace (ctrl + h) di tutte le occorrenze
+con il nome vecchio con il nuovo nome scelto.
+
+fare poi import.
+
+bisogna poi nascondere tutti i documenti (ddt (BO), FATTURE (ft)) che il cliente non usa. Per fare questo bisgona spuntare sia PERS. che NASCONDI.

@@ -1,0 +1,68 @@
+[ARAT0000]
+[ARCA0000]
+[ARCO0000]
+[ARFN0000]
+[ARSN0000]
+[ARTJ0000]
+[ARTK0000]
+[ARTL0000]
+[ARTN0000]
+[ARTO0000]
+[ARTQ0000]
+[ARTR0000]
+[ARTS0000]
+[ARTT0000]
+[ARTU0000]
+[ARTW0000]
+[AULR0000]
+[AULS0000]
+[AVMA0000]
+[BICV0000]
+[CNTA0000]
+[LFFC0000]
+[MAGV0000]
+[SALE0000]
+[SALL0000]
+[SALS0000]
+[SALT0000]
+[TAAF0000]
+[TOKA0000]
+[VCMP0000]
+[VCND0000]
+[VCNL0000]
+[VCOQ0000]
+[VDCP0000]
+[VDYC0000]
+[VICD0000]
+[VLGA0000]
+[VMRA0000]
+[VMRB0000]
+[VMRC0000]
+[VOAF0000]
+[VTND0000]
+[VTVB0000]
+[VUCA0000]
+[WBVE0000]
+[ARTF0000]() 4190(14355) <-- Non Necessario
+[ARTG0000]() 4236 <-- Non Necessario
+[ARTH0000]() 2279(2282) <-- Non Necessario
+[ARTP0000]() 180(3917) <-- Non Necessario
+[ARTV0000]() 1599 <-- Non Necessario
+[ARTY0000]() 28162 = [ARTA0000] <-- Non Necessario
+[DARW0000]() 20058 <-- Non Necessario
+[SALV0000]() 10178(130296) <-- Non Necessario
+[SALW0000]() 972(3749) <-- Non Necessario
+[VCNA0000](Descrizione,Fornitore) 205(217) <-- Ordini
+[VCNB0000](Descrizione) 336(396) <-- Ordini
+[VCNC0000](Descrizione) 15 <-- Ordini
+
+[SALM0000]() 9849(127359) <-- Giacenze
+[SALN0000]() 43(161) <-- Giacenze
+
+[ARFA0000](Prezzo) 25164(50619) <-- Gli articoli si ripetono con sottoconto 4 e 9277 e quelli con sottoconto 9277 anche con entità 88
+[ARTA0000](Descrizione,UMMagazzino) 28162 = [ARTY0000]
+[ARTI0000](BarCode) 13143
+[ARTM0000](Listino,Prezzo) 32398(103326) <-- Solo listini 1000 e 2000
+
+
+Entita 88 --> Esiste solo nella tabella [ARFA0000]

@@ -1,0 +1,31 @@
+/*
+*
+*	Ritorna il peso netto dei prodotti di un ddt, in base a @iDocUniq
+*
+*/
+CREATE FUNCTION [dbo].[udfCliDoc_PesoNetto_Pers]
+(
+	@iDocUniq int
+)
+RETURNS decimal(9, 3)
+AS
+BEGIN
+Declare @dPesoNetto decimal(9, 3) = 0
+
+Select @dPesoNetto = Sum(
+	Case When IsNull(A.PrdUm,'') = 'kg' Then 
+		IsNull(PrdQta,0) 
+	Else 
+		Case When IsNull(B.PrdUm2,'') = 'kg' And IsNull(B.PrdUm2Rap,0) > 0 Then 
+			IsNull(PrdQta,0) * IsNull(B.PrdUm2Rap,0) 
+		Else 0 
+		End
+	End)
+From dbo.[CliDocLin] A 
+Left Join dbo.[PrdAna] B On A.PrdCod = B.PrdCod
+Where A.UniqDoc = @iDocUniq
+
+Set @dPesoNetto = IsNull(@dPesoNetto, 0)
+
+RETURN @dPesoNetto
+END

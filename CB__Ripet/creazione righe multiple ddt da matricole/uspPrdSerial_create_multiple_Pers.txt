@@ -1,0 +1,144 @@
+/* 
+*
+*
+*
+*/
+CREATE PROCEDURE [uspPrdSerial_create_multiple_Pers]
+	@iSession int,
+	@sTableName varchar(16),
+	@iUniqLin int,
+	@sPrdCod varchar(32),
+	@sItemStatus varchar(8),
+	@sArraySerials varchar(512)
+AS
+SET NOCOUNT ON
+Declare @bOk tinyint = 1
+Declare @iUniqNew int
+Declare @iLinNumNew int
+Declare @sPrdSerial varchar(32)
+Declare @sSQL varchar(4096)
+Declare @tbSerials Table(
+	[PrdSerial] varchar(32),
+	[UniqRow] int IDENTITY
+)
+-- CONTROLLO VALIDITA' DATI
+If IsNull(@sTableName,'') Not In ('CliDocLin','ForDocLin')
+	Or (@sTableName = 'CliDocLin' And IsNull((Select Top 1 1 From [CliDocLin] Where [Uniq] = @iUniqLin),0) <> 1 )
+	Or (@sTableName = 'ForDocLin' And IsNull((Select Top 1 1 From [ForDocLin] Where [Uniq] = @iUniqLin),0) <> 1 )
+	Or Len(RTrim(LTrim(Replace(@sArraySerials,',','')))) <= 0
+	Or RTrim(LTrim(@sArraySerials)) Not Like '%,%'
+	Or (Select Top 1 1 From dbo.[udfStrSplit] (@sArraySerials, ',') Where Len([Token]) > 32) = 1
+	Set @bOk = 0
+Else
+Begin
+	-- INSERISCO MATRICOLE VALIDE IN UNA TABELLA VIRTUALE
+	Insert @tbSerials ([PrdSerial])
+	Select RTrim(LTrim([Token])) From dbo.[udfStrSplit] (@sArraySerials, ',') Order By RTrim(LTrim([Token])) ASC
+	
+	Delete From @tbSerials Where [PrdSerial] Not In (
+		Select [PrdSerial]
+		From dbo.[PrdSerialAna]
+		Where PrdCod Like IsNull(@sPrdCod,'%')
+		And IsNull(ItemStatus, '') Like IsNull(@sItemStatus,'%')
+		And LTrim(RTrim(IsNull(ItemKind, ''))) Not In ('OPERATIVO', 'NASCOSTO')
+	)
+	
+	-- CONTROLLO VALIDITA' MATRICOLE
+	If (Select Count(1) From @tbSerials) <= 0
+		Set @bOk = 0
+	Else
+	Begin
+		-- UPDATE DELLA RIGA DA CUI E' STATA LANCIATA LA PROCEDURA
+		Set @sPrdSerial = (Select Top 1 [PrdSerial] From @tbSerials Order By [UniqRow] ASC)
+		
+		Set @sSQL = 'Update dbo.[' + @sTableName + '] Set'
+				+ ' [PrdSerial] = ''' + @sPrdSerial + ''','
+				+ ' [RowChangeUserID] = IsNull(' + CAST(@iSession as varchar) + ',0)'
+				+ ' Where [Uniq] = ''' + CAST(@iUniqLin as varchar) + ''''
+
+		Execute(@sSQL)
+	
+		-- RIMUOVO LA MATRICOLA INSERITA NELLA RIGA ORIGINALE
+		Delete From @tbSerials
+		Where [UniqRow] = (Select Top 1 [UniqRow] From @tbSerials Order By [UniqRow] ASC)
+		
+		-- CONTROLLO SE E' NECESSARIO CREARE NUOVE RIGHE
+		If (Select Count(1) From @tbSerials) > 0
+		Begin
+			-- CREAZIONE NUOVE RIGHE PRENDENDO I DATI DALLA RIGA ORIGINALE, ECCETTO LA MATRICOLA
+			If(@sTableName = 'CliDocLin')
+			Begin
+				Select @iLinNumNew = Max([LinNum]) From [CliDocLin] 
+				Where [UniqDoc] = (Select Top 1 [UniqDoc] From [CliDocLin] Where [Uniq] = @iUniqLin)
+			End
+			Else If(@sTableName = 'ForDocLin')
+			Begin
+				Select @iLinNumNew = Max([LinNum]) From [ForDocLin] 
+				Where [UniqDoc] = (Select Top 1 [UniqDoc] From [ForDocLin] Where [Uniq] = @iUniqLin)
+			End
+
+			Declare cCursorSerials Cursor FAST_FORWARD For
+			Select [PrdSerial]
+			From @tbSerials
+			Where [UniqRow] <> 0
+			Order By [UniqRow] ASC
+			
+			Open cCursorSerials
+			Fetch Next From cCursorSerials Into @sPrdSerial
+			While (@@Fetch_Status <> -1 And @bOk = 1)
+			Begin
+				Execute dbo.[uspNumUniqNext_out] @sTableName, @iUniqNew OUTPUT
+			
+				Set @iLinNumNew = ISNULL(@iLinNumNew, 0) + 1
+				
+				Set @sSQL = 'Insert Into dbo.[' + @sTableName + '] ('
+				+ '  LinNum'
+				+ ', LinStat, LinLavStadio, LinStatFrom, LinSaldo, QtaEvs, QtaEvs2'
+				+ ', LinOmg, PrdCod, PrdCod2, ForCod, PrdForCod, PrzAcq, PrdParams'
+				+ ', PrdSerial'
+				+ ', PrdLotto, PrdDtaMake, PrdDtaCns, PrdDes, PrdUm2, QtaUm2, PrdUm'
+				+ ', PrdQtaCnsNow, PrdQta, PrdQta2, PrdPrz, PrdSc, PrdPrz2, PrdAdd'
+				+ ', TotPrz2, LinRif, LinType, IvaCod, IvaAlq, PrvAlq, PrvAgeCod'
+				+ ', CptCnt, CdcModel, CdcCommessa, PrzLstCod, PrzLst, TotPrz, TotPrz2C'
+				+ ', TotPrz2S, TotDivisaP, TotQta2, Info, InfoExt, PrdUso, Tm, TmCalc'
+				+ ', LinMP, LinRistFrom, DocTipFrom, UniqFrom, UniqLinFrom, UniqStp'
+				+ ', UniqStpGrp, UniqStpDta, MustSpool, ElabNum, ElabLavNum, SpedMagMoved'
+				+ ', FormCod, DibaCod, OffCod, OffQta, OffMinFt, OffMinFt1, OffMinFt2'
+				+ ', OffPrvFix'
+				+ ', Uniq'
+				+ ', UniqDoc, Uniq2, UniqDoc2'
+				+ ', RowCreate, RowUserID'
+				+ ', RowChange, RowChangeUserID'
+				+ ', RowLocked, RowPrinted'
+				+ ') Select Top 1 '
+				+ CAST(@iLinNumNew as varchar) + ' As LinNum'
+				+ ', LinStat, LinLavStadio, LinStatFrom, LinSaldo, QtaEvs, QtaEvs2'
+				+ ', LinOmg, PrdCod, PrdCod2, ForCod, PrdForCod, PrzAcq, PrdParams'
+				+ ', ''' + @sPrdSerial + ''' As PrdSerial'
+				+ ', PrdLotto, PrdDtaMake, PrdDtaCns, PrdDes, PrdUm2, QtaUm2, PrdUm'
+				+ ', PrdQtaCnsNow, PrdQta, PrdQta2, PrdPrz, PrdSc, PrdPrz2, PrdAdd'
+				+ ', TotPrz2, LinRif, LinType, IvaCod, IvaAlq, PrvAlq, PrvAgeCod'
+				+ ', CptCnt, CdcModel, CdcCommessa, PrzLstCod, PrzLst, TotPrz, TotPrz2C'
+				+ ', TotPrz2S, TotDivisaP, TotQta2, Info, InfoExt, PrdUso, Tm, TmCalc'
+				+ ', LinMP, LinRistFrom, DocTipFrom, UniqFrom, UniqLinFrom, UniqStp'
+				+ ', UniqStpGrp, UniqStpDta, MustSpool, ElabNum, ElabLavNum, SpedMagMoved'
+				+ ', FormCod, DibaCod, OffCod, OffQta, OffMinFt, OffMinFt1, OffMinFt2'
+				+ ', OffPrvFix'
+				+ ', ' + CAST(@iUniqNew as varchar) + ' As Uniq'
+				+ ', UniqDoc, Uniq2, UniqDoc2'
+				+ ', GETDATE() As RowCreate, IsNull(' + CAST(@iSession as varchar) + ',0) As RowUserID'
+				+ ', GETDATE() As RowChange, IsNull(' + CAST(@iSession as varchar) + ',0) As RowChangeUserID'
+				+ ', RowLocked, 0 As RowPrinted'
+				+ ' From dbo.[' + @sTableName + '] Where [Uniq] = ''' + CAST(@iUniqLin as varchar) + ''''
+				
+				Execute(@sSQL)
+				-----------------------------------
+				Fetch Next From cCursorSerials Into @sPrdSerial
+			End
+			Close cCursorSerials
+			Deallocate cCursorSerials
+		End
+	End
+End
+
+Select @bOk as Result

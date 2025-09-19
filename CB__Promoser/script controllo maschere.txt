@@ -1,0 +1,72 @@
+' @0 -> Contiene il risultato del controllo, può essere 0, 1 o 2
+'	0: Procedo senza avvisi
+'	1: Procedo solo su conferma dell'utente
+'	2: Non procedo
+' @1$ -> Messaggio di errore da mostrare
+'
+' Non cambiare la riga seguente
+@0 = 0
+' Non cambiare la riga seguente
+@1$ = ""
+
+'Controllo se "PERSONALIZZAZIONE" (che nella colonna "Variabile" ha "B" assegnato) è "neutro" (codice "N")
+If Str(B) = "N" Then
+
+	'Controllo se "SUPPORTO" (che nella colonna "Variabile" ha "C" assegnato) è "su raso EKO" (codice "E")
+	If Str(C) = "E" Then 
+	
+		'Copiare la seguente riga per impostare il risultato del controllo come "Non procedo"
+		@0 = 2
+		'Impostare il messaggio di errore con la seguente riga
+		@1$ = "Se la personalizzazione è 'Neutra' il supporto non può essere 'Raso EKO'"
+		
+	'Fine del controllo se "SUPPORTO" è "su raso EKO"
+	End If
+
+	'Controllo se "RETRO" (che nella colonna "Variabile" ha "L" assegnato) è "fronte e retro uguale" (codice "FRU")
+	If Str(L) = "FRU" Then 
+	
+		'Copiare la seguente riga per impostare il risultato del controllo come "Non procedo"
+		@0 = 2
+		'Impostare il messaggio di errore con la seguente riga
+		@1$ = "Se la personalizzazione è 'Neutra' il retro non può essere 'fronte e retro uguale'"
+		
+	'Fine del controllo se "RETRO" è "fronte e retro uguale"
+	End If
+
+	'Controllo se "RETRO" (che nella colonna "Variabile" ha "L" assegnato) è "fronte e retro diverso" (codice "FRD")
+	If Str(L) = "FRD" Then 
+	
+		'Copiare la seguente riga per impostare il risultato del controllo come "Non procedo"
+		@0 = 2
+		'Impostare il messaggio di errore con la seguente riga
+		@1$ = "Se la personalizzazione è 'Neutra' il retro non può essere 'fronte e retro diverso'"
+		
+	'Fine del controllo se "RETRO" è "fronte e retro diverso"
+	End If
+	
+'Fine del controllo se "PERSONALIZZAZIONE" è "neutro"
+End If
+
+'Controllo se "BORCHIE" (che nella colonna "Variabile" ha "M" assegnato) è "borchie dorate diam. 9mm" (codice "O9")
+If Str(M) = "O9" Then
+	'Copiare la seguente riga per impostare il risultato del controllo come "Procedo solo su conferma dell'utente"
+	@0 = Iif(@0 = 2, 2, 1)
+'Fine del controllo se "BORCHIE" è "borchie dorate diam. 9mm"
+End If
+
+'Controllo se "BORCHIE" (che nella colonna "Variabile" ha "M" assegnato) è "borchie argentate diam. 9mm" (codice "A9")
+If Str(M) = "A9" Then
+	'Copiare la seguente riga per impostare il risultato del controllo come "Procedo solo su conferma dell'utente"
+	@0 = Iif(@0 = 2, 2, 1)
+'Fine del controllo se "BORCHIE" è "borchie argentate diam. 9mm"
+End If
+
+' Non cambiare il codice da qui in poi
+If @0 = 2 Then
+	MsgShow("(x)(OK)[Errore]Errori")
+	Stop
+Else If (@0 = 1 AND MsgKU("Procedere?") = false) Then
+	MsgShow("(i)(OK)[Annullata]Operazione annullata")
+	Stop
+End If

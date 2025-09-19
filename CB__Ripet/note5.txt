@@ -1,0 +1,17 @@
+
+Dati Scorretti:
+select B.* from [BpDataSystem].dbo.[SystemForm] A
+FULL OUTER join [BpDataSystemDaRipristinare].dbo.[SystemForm] B
+on ISNULL(A.DbCustom,'') = ISNULL(B.DbCustom ,'')
+and ISNULL(A.FormName,'') = ISNULL(B.FormName ,'')
+and ISNULL(A.DataIndex,'') = ISNULL(B.DataIndex,'')
+where A.FormName is null
+
+Istruzione Ripristino:
+INSERT [BpDataSystem].dbo.[SystemForm]
+select B.* from [BpDataSystem].dbo.[SystemForm] A
+FULL OUTER join [BpDataSystemDaRipristinare].dbo.[SystemForm] B
+on ISNULL(A.DbCustom,'') = ISNULL(B.DbCustom ,'')
+and ISNULL(A.FormName,'') = ISNULL(B.FormName ,'')
+and ISNULL(A.DataIndex,'') = ISNULL(B.DataIndex,'')
+where A.FormName is null

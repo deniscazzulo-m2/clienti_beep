@@ -1,0 +1,91 @@
+Tabelle importanti:
+ANAA0000 -> Clienti/Fornitori(CodAnagrafico,PartitaIva,CodiceFiscale,RagSocCognome,RagSocNome,IndirizzoFiscale,NumCivicoFiscale,CapFiscale,ComuneFiscale,ProvinciaFiscale,RegioneFiscale,NazioneFiscale,Prefisso,Telefono,PrefissoAggiuntivo,TelefonoAggiuntivo,Fax,Email,EmailPec)
+CIPA0000 -> Clienti/Fornitori Cod.Dest.(UfficioIPA)
+ARFA0000 -> Prodotti(Prezzo)
+ARTA0000 -> Prodotti(Descrizione,UMMagazzino)
+ARTI0000 -> Prodotti(BarCode)
+ARTM0000 -> Prodotti(Listino,Prezzo)
+ARTP0000 -> Prodotti
+
+TPAG0000 -> Metodi di pagamento
+
+
+ARFA0000 -> collegamento prodotti/fornitori ? F
+
+Mastro Clienti: 120
+
+Mastro Fornitori: 230
+
+
+CLIENTI: (151)
+
+AGEA0000(CodAnagrafico) CF
+ARTF0000(MastroCF,SottocCF,Serie,Articolo) CF               (9767/333)
+BROT0000(MastroCli,SottocCli) C                             (15929/455)
+CESB0000(MastroCliFor,SottocCliFor) CF                      (18/11)
+CIPA0000(Mastro,Sottoc) C                                   (243/243)
+CLFB0000(Mastro,Sottoc) CF                                  (3116/944)
+CLFC0000(Mastro,Sottoc) CF                                  (9/7)
+CLFD0000(Mastro,Sottoc) C                                   (33067/955)
+CLIA0000(Mastro,Sottoc,CodAnagrafico) C                     (985/985)
+CLIB0000(Mastro,Sottoc) C                                   (999/999)
+CLID0000(Mastro,Sottoc) C                                   (168/168)
+CTRA0000(MastroCliFor,SottocCliFor) CF                      (11/1)
+CTRT0000(MastroCliFor,SottocCliFor) CF                      (1/1)
+DESM0000(Mastro,Sottoc,CodAnagrafico) CF                    (534/490)
+DOCT0000(MastroCli,SottocCli) C                             (18113/383)
+EDIF0000(Mastro,Sottoc) C                                   (4897/198)
+EFFA0000(Mastro,Sottoc,CodAnagrafico) C                     (3696/170)
+ELCL0000(Mastro,Sottoc,CodAnagrafico) C                     (77/77)
+FATT0000(Mastro,Sottoc) C                                   (12522/419)
+MOMA0000(MastroCliFor,SottocCliFor) CF                      (92764/375)
+MOVC0000(MastroControp,SottocControp) CF RiBa?              (27577/469)
+MOVP0000(MastroCliFor,SottocCliFor) CF                      (26341/422)
+MOVT0000(MastroCliFor,SottocCliFor,CodAnagrafico) CF        (17699/527)
+ODME0000(Mastro,Sottoc) CF                                  (572/542)
+PDCF0000(Mastro,Sottoc) CF                                  (576/476)
+PDCR0000(Mastro,Sottoc) CF                                  (30/10)
+PRTA0000(MastroCliFor,SottocCliFor) CF                      (12862/422)
+PRTR0000(MastroCliFor,SottocCliFor) CF                      (13289/422)
+RACD0000(MastroFor,SottocFor) CF                            (1015/22)
+SALD0000(Mastro,Sottoc) CF                                  (9823/475)
+TCCC0000(Mastro,Sottoc) CF                                  (24/2)
+TPDC0000(Mastro,Sottoc) CF                                  (47/14)
+VCOA0000(Mastro,Sottoc) C                                   (51/20)
+
+FORNITORI: (233)
+
+AGEA0000(CodAnagrafico) CF
+ARTF0000(MastroCF,SottocCF,Serie,Articolo) CF               (4588/135)
+BNFA0000(Mastro,Sottoc,CodAnagrafico) F                     (3100/296)
+BNFB0000(Mastro,Sottoc) F                                   (4273/296)
+BRFT0000(MastroFor,SottocFor) F                             (1091/174)
+CESB0000(MastroCliFor,SottocCliFor) CF                      (230/68)
+CLFB0000(Mastro,Sottoc) CF                                  (5807/2202)
+CLFC0000(Mastro,Sottoc) CF                                  (2/2)
+CLFE0000(Mastro,Sottoc) F                                   (666/666)
+CTRA0000(MastroCliFor,SottocCliFor) CF                      (89/6)
+CTRT0000(MastroCliFor,SottocCliFor) CF                      (7/6)
+DESM0000(Mastro,Sottoc,CodAnagrafico) CF                    (31/31)
+DOFT0000(MastroFor,SottocFor) F                             (8792/534)
+ELFR0000(Mastro,Sottoc,CodAnagrafico) F !                   (203/203)
+FAFI0000(Mastro,Sottoc) F                                   (7082/345)
+FAFR0000(Mastro,Sottoc) F                                   (28899/384)
+FAFT0000(Mastro,Sottoc) F                                   (8007/384)
+FORA0000(Mastro,Sottoc,CodAnagrafico) F                     (2249/2249)
+FORB0000(Mastro,Sottoc) F                                   (2182/2182)
+FORW0000(MastroFor,SottocFor) F                             (672/560)
+MOMA0000(MastroCliFor,SottocCliFor) CF                      (46300/157)
+MOVC0000(MastroControp,SottocControp) CF RiBa?              (40745/1474)
+MOVP0000(MastroCliFor,SottocCliFor) CF                      (33841/1332)
+MOVT0000(MastroCliFor,SottocCliFor,CodAnagrafico) CF        (20141/1441)
+ODME0000(Mastro,Sottoc) CF                                  (26/26)
+PDCF0000(Mastro,Sottoc) CF                                  (1750/1501)
+PDCR0000(Mastro,Sottoc) CF                                  (5/4)
+PRTA0000(MastroCliFor,SottocCliFor) CF                      (16480/1332)
+PRTR0000(MastroCliFor,SottocCliFor) CF                      (17378/1325)
+RACD0000(MastroFor,SottocFor) CF                            (30/7)
+SALD0000(Mastro,Sottoc) CF                                  (18751/1494)
+TCCC0000(Mastro,Sottoc) CF                                  (67/5)
+TPDC0000(Mastro,Sottoc) CF                                  (10/5)
+VCNA0000(MastroCliFor,SottocCliFor) F                       (217/20)
