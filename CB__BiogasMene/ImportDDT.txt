@@ -1,0 +1,109 @@
+soci -> clienti -> 1 -> Uscite -> DocTip 14
+terzisti -> fornitori -> 2 *NULL -> Ingressi -> DocTip 24
+
+
+----------------------------------------------------------------------------------------------------------------------------------
+QUERY X TABELLE
+----------------------------------------------------------------------------------------------------------------------------------
+EXEC sp_rename 'ImportDDT_Pers', 'ImportDDT_OLD_Pers'
+
+
+
+INSERT INTO ImportDDT_Pers (ElabID,NomeFile,Stato,NoteElab,UserLogin)
+SELECT ElabID,NomeFile,Stato,NoteElab,UserLogin FROM ImportDDT_OLD_Pers
+
+
+
+EXEC sp_rename 'ImportDDTDett_Pers', 'ImportDDTDett_OLD_Pers'
+
+
+
+INSERT INTO ImportDDTDett_Pers 
+(ElabID,Terzista,PrdCod,PrdDes,Lordo,Tara,Netto,Effettuato,UniqDoc,UniqRowRifMC)
+SELECT ElabID,Utente,PrdCod,PrdDes,Lordo,Tara,Netto,Effettuato,UniqDoc,UniqRowRifMC
+FROM ImportDDTDett_OLD_Pers
+
+
+
+UPDATE ImportDDTDett_Pers 
+SET Socio = (SELECT TOP 1 AnaCod FROM ImportDDT_OLD_Pers 
+WHERE ImportDDTDett_Pers.ElabID = ImportDDT_OLD_Pers.ElabID)
+
+----------------------------------------------------------------------------------------------------------------------------------
+MODIFICHE A MODULI
+----------------------------------------------------------------------------------------------------------------------------------
+Modulo ImportDDT_Pers Indice 0 ->
+Visualizzazione: -1,-1,0,0,0,0,0,0,1,0,0,0,0,0,0,
+
+SQL: 
+Select ElabID, NomeFile, Stato, UserLogin,
+'' As buttonCancel, '' As buttonPlus, '' As buttonElab, NoteElab
+From dbo.[ImportDDT_Pers]
+Where (1=1)
+Order By ElabID DESC
+
+Layout:
+NomeFile: [Nome file],350,V
+buttonPlus: [# AddTableHS.png § DETT § Dati collegati],50,B10100,V,-M,A111,CF-657931,CB-657931
+buttonCancel: [# dbcanc1.gif § ESCL § Esclusione §  § 0],50,B10100,V,-M,A111,CF-657931,CB-657931
+buttonElab: [# event.gif § ELAB § Elaborazione §  § 0],50,B10100,V,-M,A111,CF-657931,CB-657931
+NomeFile: V,-E
+UserLogin: V,-E
+Stato: V,-E
+NoteElab: 800,V,-E
+
+Script Eventi:
+%
+<buttonplus.buttonclick>
+<![CDATA[
+@0$ = ValueGet("ElabID")
+
+ShowModal("ImportDDTDettDrop_Pers")
+Stop
+]]>
+</buttonplus.buttonclick>
+%
+
+
+
+Modulo ImportDDT_Pers Indice 1 ->
+SQL:
+Select A.ElabID ElabID, Stato, UniqRow, ISNULL(C.ItemDes, Socio) Socio, ISNULL(D.ItemDes, Terzista) Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, NomeFile, UniqDoc
+From dbo.[ImportDDTDett_Pers] A 
+Inner Join dbo.[ImportDDT_Pers] B On A.ElabID = B.ElabID
+Left Join dbo.[Mixana] C On C.ItemType = 1 And C.ItemID = Socio
+Left Join dbo.[Mixana] D On D.ItemType = 2 And D.ItemID = Terzista
+Where (1=1)
+Order By A.ElabID DESC, UniqRow
+
+Layout:
+NomeFile: [Nome file],350,V
+Lordo: D22,V
+Tara: D22,V
+Netto: D22,V
+UniqDoc: -V
+Socio: 300
+Terzista: 300
+
+
+
+Modulo ImportDDTDettDrop_Pers Indice 0 ->
+Intestazione Grid: ""
+
+Visualizzazione: 1400,600,0,0,0,0,0,0,1,0,0,0,0,0,0,
+
+SQL:
+Select ElabID, UniqRow, ISNULL(B.ItemDes, Socio) Socio, ISNULL(C.ItemDes, Terzista) Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato
+From dbo.[ImportDDTDett_Pers]
+Left Join dbo.[Mixana] B On B.ItemType = 1 And B.ItemID = Socio
+Left Join dbo.[Mixana] C On C.ItemType = 2 And C.ItemID = Terzista
+Where (1=1) And ElabID = {0}
+Order By ElabID DESC, UniqRow
+
+Layout:
+Lordo: D22,V
+Tara: D22,V
+Netto: D22,V
+ElabID: -V
+Socio: 300
+Terzista: 300

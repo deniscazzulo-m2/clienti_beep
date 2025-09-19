@@ -1,0 +1,45 @@
+/*
+*
+*
+*
+*/
+CREATE PROCEDURE [uspElabDDTImportListAss_Pers]
+	@iSession int,
+	@iElabID int
+AS
+SET NOCOUNT ON
+
+Declare @iUniqRow int
+
+Declare @iAnaType tinyint
+
+Declare @iUniqDoc int
+
+Declare @sMsg varchar(1024) = ''
+
+Declare cCursor_ListFileToElabAss Cursor FAST_FORWARD For
+Select
+	UniqRow, Case When Left(IsNull(PrdCod, ''), 1) = 'U' Then 2 Else 1 End
+From
+	dbo.[ImportDDTDett_Pers]
+Where
+	ElabID = @iElabID
+Order By
+	Effettuato, UniqRow
+Open cCursor_ListFileToElabAss
+Fetch Next From cCursor_ListFileToElabAss Into @iUniqRow, @iAnaType
+While @@Fetch_Status <> -1
+Begin
+	Execute dbo.[uspElabDDTImport_Pers] @iSession, @iUniqRow, @iAnaType, @iUniqDoc OUTPUT
+
+	Update dbo.[ImportDDTDett_Pers] Set UniqDoc = @iUniqDoc Where UniqRow = @iUniqRow
+
+	Fetch Next From cCursor_ListFileToElabAss Into @iUniqRow, @iAnaType
+End
+Close cCursor_ListFileToElabAss
+Deallocate cCursor_ListFileToElabAss
+
+If Len(@sMsg) = 0
+	Set @sMsg = 'OK|Elaborazione terminata.'
+
+--Select @sMsg Res

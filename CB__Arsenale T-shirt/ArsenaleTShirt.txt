@@ -1,0 +1,81 @@
+- Gestione clienti/fornitori e quindi DDT ricevuti
+- Ad oggi due magazzini, uno principale ed un altro usato esclusivamente per la certificazione
+- La certificazione prevede CODICI PRODOTTO riservati:
+  tali codici vanno bollettati/fatturati con documenti loro senza possibilità di ibridazione
+- Necessaria l'ubicazione a magazzino
+- Flusso
+  01) Preventivo (anche tramite app.)
+  02) O.C.
+  03) Linea di produzione
+      -> pianificazione in base alle date di consegna
+      -> ATTUALMENTE: c'è un foglio di riepilogo
+                      a cui per ogni riga è collegato un foglio di lavoro.
+
+                      -------------------------------------------------------------
+                      Di seguito lista colonne del foglio di riepilogo
+                      -------------------------------------------------------------
+                      - CODIFICA
+                        - se nella forma L-00000 lavoro "ordinario"
+                        - se nella forma G-00000 lavoro "certificato"
+                      - CLIENTE
+                      - LAVORO
+                        descrittivo del lavoro
+                      - REFERENTE
+                      - DATA O.C.
+                      - ORDINATO
+                        Indica il fornitore a cui sono state ordinate le t-shirt;
+                        nel caso sia il cliente ad avere lui stesso le t-shirt viene scritto "Cliente"
+                      - ARRIVATO
+                      - VALUTAZIONE FILE
+                      - GRAFICA
+                      - CALENDARIZZATO
+                      - FOGLIO ORDINE
+                      - PRONTEZZA
+                      - DOCUMENTI
+                      - NOTE
+                        mettere qui l'eventuale data tassativa
+
+                      -------------------------------------------------------------
+                      Di seguito lista colonne della scheda di lavoro (OSCScheda_Pers, PARZIALE!)
+                      -------------------------------------------------------------
+                      UniqOC (PK)
+                      Lavoro (varchar)
+                      Referente (varchar)
+                       -> ereditato da MixAna ma cmq modificabile
+                      Prodotti (varchar(Max))
+                       -> è fondamentalmente un sunto dell'O.C.
+                          -> verificare se necessario in quanto editabile/calcolabile?
+                      Prezzi (varchar(Max))
+                       -> fondamentalmente un riepilogo dei prezzi di vendita
+                          -> come per il campo precedente verifica della necessità di tale dato come colonna
+                      TipoStampa (varchar)
+                       -> tipo di stampa; verifica se quicktable (imho no) o se descrittivo in quanto multiplo,
+                          anche se quicktable a spunta (tipo quelle dei permessi dei menu) potrebbero essere
+                          la soluzione
+                      Specifiche (varchar(Max))
+                       -> testo libero per specifiche di personalizzazione ed indicazione pantone
+                      < QUI CAMPI PER LA PRODUZIONE, VEDERE A PARTE INTERROGANDO GLI UTENTI>
+                      ItemInfo (varchar(Max))
+                       -> Note/Problemi tecnici
+                      Contatti (varchar(Max))
+                       -> Lista email/numeri di cellulare
+                          -> Ereditata da MixAna, editabile
+
+  04) Documento (interno) di inizio produzione o merce pronta
+- Prevedere
+  - Sottoscorta per i prodotti in approvigionamento
+  - Listini di vendita in digitale (ad uso del commerciale)
+  - Anteprima margine (su preventivo/O.C.)
+- Note
+  - Vengono emesse sia fatture accompagnatorie che DDT a cui poi segue la fatturazione differita
+  - Ad oggi la produzione vera e propria anche se a livello logico si basa su
+    delle distinte nella realtà quotidiana queste non vengono usate per lo scarico
+    del magazzino
+  - Ad oggi fondamentalmente non vengono venduti kit ma bensì il solo prodotto
+  - Sono presenti gli agenti
+  - Prevedere controllo codici imputabili sui documenti (ordinari vs certificati)
+    -> il controllo non deve essere bloccante ma solo a livello di alert utente
+- Priorità
+  - Configurazioni movimenti
+  - Addestramento di base
+  - Stima data di partenza (idealmente 01/06/2024)

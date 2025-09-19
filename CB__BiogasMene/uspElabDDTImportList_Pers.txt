@@ -1,0 +1,340 @@
+/*
+*
+*
+*
+*/
+CREATE PROCEDURE [uspElabDDTImportList_Pers]
+	@iSession int,
+	@iElabID int
+AS
+SET NOCOUNT ON
+
+Declare @iUniqRow int
+
+Declare @iAnaType tinyint
+
+Declare @iUniqDoc int
+
+Declare @sMsg varchar(1024) = ''
+
+Declare @bExist bit
+
+
+
+-- INIZIO GIRO SU DB SOCI
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50001' Or Terzista = '50001')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	--copia prodotti mancanti
+	Insert Into [BpCURIOTTO].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpCURIOTTO].dbo.[PrdAna] Z)
+	--copia listini prodotto mancanti
+	Insert Into [BpCURIOTTO].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpCURIOTTO].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	--allinea i prezzi dei prodotti
+	Update A Set A.PrdPrz = B.PrdPrz From [BpCURIOTTO].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	--copia fornitori prodotto mancanti
+	Insert Into [BpCURIOTTO].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpCURIOTTO].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	--allinea i prezzi dei fornitori
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpCURIOTTO].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	--	Insert Into [BpCURIOTTO].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID And AnaCod = '50001'
+	Insert Into [BpCURIOTTO].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	--	Insert Into [BpCURIOTTO].dbo.[ImportDDTDett_Pers](ElabID, Utente, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) Select A.ElabID ElabID, A.Utente Utente, A.PrdCod PrdCod, A.PrdDes PrdDes, A.Lordo Lordo, A.Tara Tara, A.Netto Netto, A.Effettuato Effettuato, A.UniqDoc UniqDoc, A.UniqRow UniqRowRifMC From dbo.[ImportDDTDett_Pers] A Inner Join dbo.[ImportDDT_Pers] B On A.ElabID = B.ElabID Where A.ElabID = @iElabID And B.AnaCod = '50001' Order By A.Effettuato, A.UniqRow
+	Insert Into [BpCURIOTTO].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50001' Or Terzista = '50001') Order By Effettuato, UniqRow
+	--	Update [BpCURIOTTO].dbo.[ImportDDT_Pers] Set AnaCod = '50000', AnaType = Case When AnaType = 1 Then 2 Else 1 End Where ElabID = @iElabID
+	Update [BpCURIOTTO].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50001' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50001' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50010' Or Terzista = '50010')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpLAGENERALA].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpLAGENERALA].dbo.[PrdAna] Z)
+	Insert Into [BpLAGENERALA].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpLAGENERALA].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpLAGENERALA].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpLAGENERALA].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpLAGENERALA].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpLAGENERALA].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpLAGENERALA].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpLAGENERALA].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50010' Or Terzista = '50010') Order By Effettuato, UniqRow
+	Update [BpLAGENERALA].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50010' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50010' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50002' Or Terzista = '50002')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpMASSIMINO].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpMASSIMINO].dbo.[PrdAna] Z)
+	Insert Into [BpMASSIMINO].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpMASSIMINO].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpMASSIMINO].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpMASSIMINO].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpMASSIMINO].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpMASSIMINO].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpMASSIMINO].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpMASSIMINO].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50002' Or Terzista = '50002') Order By Effettuato, UniqRow
+	Update [BpMASSIMINO].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50002' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50002' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50003' Or Terzista = '50003')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpOGGERO].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpOGGERO].dbo.[PrdAna] Z)
+	Insert Into [BpOGGERO].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpOGGERO].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpOGGERO].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpOGGERO].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpOGGERO].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpOGGERO].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpOGGERO].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpOGGERO].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50003' Or Terzista = '50003') Order By Effettuato, UniqRow
+	Update [BpOGGERO].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50003' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50003' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50008' Or Terzista = '50008')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpRASO].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpRASO].dbo.[PrdAna] Z)
+	Insert Into [BpRASO].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpRASO].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpRASO].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpRASO].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpRASO].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpRASO].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpRASO].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpRASO].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50008' Or Terzista = '50008') Order By Effettuato, UniqRow
+	Update [BpRASO].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50008' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50008' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50007' Or Terzista = '50007')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpSTASSI].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpSTASSI].dbo.[PrdAna] Z)
+	Insert Into [BpSTASSI].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpSTASSI].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpSTASSI].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpSTASSI].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpSTASSI].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpSTASSI].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpSTASSI].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpSTASSI].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50007' Or Terzista = '50007') Order By Effettuato, UniqRow
+	Update [BpSTASSI].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50007' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50007' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50004' Or Terzista = '50004')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpTESTAFRA].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpTESTAFRA].dbo.[PrdAna] Z)
+	Insert Into [BpTESTAFRA].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpTESTAFRA].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpTESTAFRA].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpTESTAFRA].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpTESTAFRA].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpTESTAFRA].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpTESTAFRA].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpTESTAFRA].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50004' Or Terzista = '50004') Order By Effettuato, UniqRow
+	Update [BpTESTAFRA].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50004' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50004' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50006' Or Terzista = '50006')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpTESTAGIU].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpTESTAGIU].dbo.[PrdAna] Z)
+	Insert Into [BpTESTAGIU].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpTESTAGIU].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpTESTAGIU].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpTESTAGIU].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpTESTAGIU].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpTESTAGIU].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpTESTAGIU].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpTESTAGIU].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50006' Or Terzista = '50006') Order By Effettuato, UniqRow
+	Update [BpTESTAGIU].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50006' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50006' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50005' Or Terzista = '50005')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpTOSELLI].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpTOSELLI].dbo.[PrdAna] Z)
+	Insert Into [BpTOSELLI].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpTOSELLI].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpTOSELLI].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpTOSELLI].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpTOSELLI].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpTOSELLI].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpTOSELLI].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpTOSELLI].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50005' Or Terzista = '50005') Order By Effettuato, UniqRow
+	Update [BpTOSELLI].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50005' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50005' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50009' Or Terzista = '50009')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+Begin
+	Insert Into [BpVANZETTI].dbo.[PrdAna] Select * From dbo.[PrdAna] Where PrdCod Not In(Select Z.PrdCod From [BpVANZETTI].dbo.[PrdAna] Z)
+	Insert Into [BpVANZETTI].dbo.[PrdPrz] Select * From dbo.[PrdPrz] A Where Not Exists(Select Z.PrdCod From [BpVANZETTI].dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = A.LstCod)
+	Update A Set A.PrdPrz = B.PrdPrz From [BpVANZETTI].dbo.[PrdPrz] A Inner Join dbo.[PrdPrz] B On A.PrdCod = B.PrdCod And A.LstCod = B.LstCod Where IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)
+	Insert Into [BpVANZETTI].dbo.[PrdFor] Select * From dbo.[PrdFor] A Where Not Exists(Select Z.PrdCod From [BpVANZETTI].dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = A.ForCod)
+	Update A Set A.PrdPrz = B.PrdPrz, A.PrdSc = B.PrdSc, A.PrdPrz2 = B.PrdPrz2 From [BpVANZETTI].dbo.[PrdFor] A Inner Join dbo.[PrdFor] B On A.PrdCod = B.PrdCod And A.ForCod = B.ForCod Where (IsNull(A.PrdPrz, 0.0) <> IsNull(B.PrdPrz, 0.0)) Or (IsNull(A.PrdPrz2, 0.0) <> IsNull(B.PrdPrz2, 0.0))
+
+	Insert Into [BpVANZETTI].dbo.[ImportDDT_Pers] Select * From dbo.[ImportDDT_Pers] Where ElabID = @iElabID
+	Insert Into [BpVANZETTI].dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC) 
+		Select ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato, UniqDoc, UniqRowRifMC 
+		From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50009' Or Terzista = '50009') Order By Effettuato, UniqRow
+	Update [BpVANZETTI].dbo.[ImportDDTDett_Pers] Set 
+		Socio = Case When Socio = '50009' Then '50000' Else Socio End, 
+		Terzista = Case When Terzista = '50009' Then '50000' Else Terzista End 
+		Where ElabID = @iElabID
+End
+
+-- FINE GIRO SU DB SOCI
+
+
+Declare cCursor_ListFileToElab Cursor FAST_FORWARD For
+Select
+	UniqRow, Case When Left(IsNull(PrdCod, ''), 1) = 'U' Then 1 Else 2 End
+From
+	dbo.[ImportDDTDett_Pers]
+Where
+	ElabID = @iElabID
+Order By
+	Effettuato, UniqRow
+Open cCursor_ListFileToElab
+Fetch Next From cCursor_ListFileToElab Into @iUniqRow, @iAnaType
+While @@Fetch_Status <> -1
+Begin
+	Execute dbo.[uspElabDDTImport_Pers] @iSession, @iUniqRow, @iAnaType, @iUniqDoc OUTPUT
+
+	Update dbo.[ImportDDTDett_Pers] Set UniqDoc = @iUniqDoc Where UniqRow = @iUniqRow
+
+	Fetch Next From cCursor_ListFileToElab Into @iUniqRow, @iAnaType
+End
+Close cCursor_ListFileToElab
+Deallocate cCursor_ListFileToElab
+
+
+
+
+-- INIZIO GIRO SU DB SOCI
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50001' Or Terzista = '50001')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpCURIOTTO].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50010' Or Terzista = '50010')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpLAGENERALA].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50002' Or Terzista = '50002')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpMASSIMINO].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50003' Or Terzista = '50003')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpOGGERO].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50008' Or Terzista = '50008')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpRASO].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50007' Or Terzista = '50007')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpSTASSI].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50004' Or Terzista = '50004')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpTESTAFRA].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50006' Or Terzista = '50006')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpTESTAGIU].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50005' Or Terzista = '50005')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpTOSELLI].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+Set @bExist = 0
+Select Top 1 @bExist = 1 From dbo.[ImportDDTDett_Pers] Where ElabID = @iElabID And (Socio = '50009' Or Terzista = '50009')
+Set @bExist = IsNull(@bExist, 0)
+If @bExist <> 0
+	Execute [BpVANZETTI].dbo.[uspElabDDTImportListAss_Pers] -1, @iElabID
+
+-- FINE GIRO SU DB SOCI
+
+
+If Len(@sMsg) = 0
+	Set @sMsg = 'OK|Elaborazione terminata.'
+
+Select @sMsg Res

@@ -1,0 +1,51 @@
+/*
+*
+*
+*
+*/
+CREATE PROCEDURE [uspImportDDTCountFileToImp_Pers]
+AS
+SET NOCOUNT ON
+
+Declare @sCmd varchar(1024) = ''
+Declare @sFolder varchar(1024) = ''
+
+Declare @iCnt int = 0
+
+Declare @sExtToFind varchar(8) = '.csv'
+
+Declare @sMsg varchar(1024) = ''
+
+Declare @tbData TABLE(
+	[FileNameDir] varchar(1024),
+	[UniqRow] int IDENTITY
+	)
+
+Select @sFolder = ItemValue From dbo.[ImportDDTPar_Pers] Where ItemID = 'CARTELLA'
+Set @sFolder = RTrim(LTrim(IsNull(@sFolder, '')))
+
+If Len(@sFolder) = 0
+	Set @sMsg = 'Parametro relativo alla cartella di lavoro mancante o non valido'
+
+If Len(@sMsg) = 0
+Begin
+	Set @sFolder = Replace(@sFolder, '/', '\')
+	If Right(@sFolder, 1) <> '\'
+		Set @sFolder = @sFolder + '\'
+	Set @sCmd = 'dir "' + @sFolder + '*' + @sExtToFind + '" /B'
+
+	Insert Into @tbData(FileNameDir)
+	EXEC [master].dbo.[xp_cmdshell] @sCmd
+
+	Delete From @tbData Where FileNameDir Like 'File n%' Or FileNameDir Like 'Impossibile %' Or Len(RTrim(LTrim(IsNull(FileNameDir, '')))) = 0
+
+	Select @iCnt = Count(*) From @tbData
+	Set @iCnt = IsNull(@iCnt, 0)
+
+	If @iCnt > 0
+		Set @sMsg = RTrim(LTrim(Cast(@iCnt As varchar(16))))
+	Else
+		Set @sMsg = 'Non sono presenti file da elaborare nella cartella ''' + @sFolder + ''''
+End
+
+Select @sMsg Res

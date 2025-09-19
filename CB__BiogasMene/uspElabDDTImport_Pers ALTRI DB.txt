@@ -1,0 +1,612 @@
+/*
+*
+*
+*
+*/
+CREATE PROCEDURE [uspElabDDTImport_Pers]
+	@iSession int,
+	@iUniqRow int,
+	@iAnaType tinyint,
+	@iUniqDoc int OUTPUT
+AS
+SET NOCOUNT ON
+
+Set @iUniqDoc = 0
+
+Declare @iUniqLin int = 0
+
+Declare @sAspBeni varchar(64) = 'RINFUSA'
+
+Declare @iDocTip tinyint = Case When @iAnaType = 1 Then 14 Else 24 End
+Declare @sLstCod varchar(16)
+Declare @sVsRif varchar(64)
+Declare @sNsRif varchar(64)
+Declare @sNumExt varchar(64)
+Declare @sDocRif varchar(64)
+Declare @sInfo varchar(1024)
+Declare @sInfo1 varchar(64)
+Declare @sInfo2 varchar(64)
+Declare @sInfo3 varchar(64)
+Declare @sInfo4 varchar(64)
+Declare @sInfo5 varchar(64)
+Declare @sInfo6 varchar(64)
+
+Declare @iUserID smallint = dbo.[udfSysUserID](@iSession)
+Declare @sTableID varchar(64) = dbo.[udfDocTip_TableID](@iDocTip)
+Declare @sTable varchar(64) = dbo.[udfDocTip_TableName](@iDocTip, 1)
+Declare @sTable3 varchar(64) = dbo.[udfDocTip_TableName](@iDocTip, 3)
+
+Declare @tDate date = NULL
+Declare @sSocio varchar(256) = ''
+
+Select @tDate = Effettuato, @sSocio = Socio From dbo.[ImportDDTDett_Pers] Where UniqRow = @iUniqRow
+Set @tDate = IsNull(@tDate, GetDate())
+
+Declare @sTime varchar(8) = dbo.[udfSysTime]()
+
+Declare @sDivisa varchar(8) = dbo.[udfSysDivisa]('')
+Declare @dCambio decimal(19, 6) = 1
+Declare @tCambioDta date = @tDate
+
+Declare @sDocNum varchar(32) = '({DOCNUM})'
+Declare @tDocDta date = @tDate
+Declare @sMagMovMod varchar(8)
+
+Declare @iFornitura int
+--Declare @sCdcModel varchar(16)
+
+-- ==============================================
+--10 offerta
+--11 ordine
+--13 predocumento
+--14 ddt
+--15 fattura
+--18 scontrino
+--
+-- DOC VENDITA
+--
+Declare @sMagMovModQNE varchar(8)
+Declare @tMagMovDta date = @tDate
+
+Declare @iLinNum smallint = 0
+Declare @iNumero int = 0
+Declare @sAnaCodFrom varchar(16) = @sSocio
+Declare @sForDocNum varchar(32)
+Declare @sForDocDta varchar(10)
+
+Declare @sNumPrefix varchar(8) = ''
+Declare @sNumSuffix varchar(8) = ''
+Declare @sNumCod varchar(8)
+
+Declare @sDsmCod varchar(16)
+Declare @sPagCod varchar(16)
+Declare @sAgeCod varchar(16)
+Declare @dPrvFix decimal(9, 2)
+Declare @sPrvSplitCod varchar(16)
+Declare @sLstSconti varchar(16)
+
+Declare @sShipPayCod varchar(8)
+Declare @sShipCod varchar(8)
+Declare @sVetCod varchar(16)
+Declare @sVetCod2 varchar(16)
+Declare @sDocIvaCod varchar(8)
+--	Declare @sDivisaAna varchar(8)
+Declare @iTrMezzo tinyint
+Declare @iTrPorto tinyint
+Declare @sEmiCau varchar(32)
+Declare @sImballo varchar(64)
+Declare @bSegueFt bit
+Declare @dVetComp decimal(19, 6) = 0.0
+
+Declare @sLotto varchar(32)
+Declare @iRapUniq int
+Declare @iPacking int
+
+Declare @sCntRegMod varchar(8)
+Declare @tCntRegDta date = @tDate
+Declare @sCntRegMod_ANA varchar(8)
+
+Declare @dTotMerce_now decimal(19, 2)
+Declare @dSctPagPc decimal(9, 2)
+Declare @dSctPag decimal(19, 2)
+Declare @dSpRiba decimal(9, 2)
+
+Declare @wtDocTable [DocTableTYPE]
+Declare @wtDocTableLin [DocTableLinTYPE]
+
+Select
+	@sPagCod = PagCod, @sAgeCod = AgeCod, @sLstCod = LstCod,
+	@dPrvFix = PrvFix,
+	-- @sPrvSplitCod = PrvSplitCod,
+	-- @sDivisaAna = Divisa,
+	@sShipPayCod = ShipPayCod, @sShipCod = ShipCod,
+	@sVetCod = VetCod, @sVetCod2 = VetCod2, @iTrPorto = TrPorto, @iTrMezzo = TrMezzo, @sImballo = TrImballo
+From dbo.[MixAna]
+Where ItemID = @sSocio
+	And ItemType = @iAnaType
+
+Set @sDocIvaCod = dbo.[udfDD_DocIvaCod](@iDocTip, @tDocDta, @sSocio, @sDsmCod)
+
+Set @sLstCod = IsNull(@sLstCod, '')
+If @sLstCod = ''
+	Set @sLstCod = dbo.[udfLstCod_default]()
+
+
+Declare @sAlfa varchar(16) = ''
+
+If @iAnaType <> 1
+Begin
+	Select Top 1
+		@sNumPrefix = IsNull(NumPrefix, ''),
+		@sNumSuffix = IsNull(NumSuffix, ''),
+		@sNumCod = IsNull(NumCod, ''),
+		@sMagMovMod = MagMovMod,
+		@sMagMovModQNE = MagMovModQNE,
+		@sCntRegMod = CntRegMod,
+		@sEmiCau = EmiCau,
+		@bSegueFt = SegueFt,
+		@iTrMezzo = 2
+	--From dbo.[DocDef] Where DocTip = @iDocTip And NumSuffix = @sAlfa Order By IsNull(DocDefault, 0) DESC
+	From dbo.[udfDD_DocDef](@iSession, 1, @iDocTip, @iAnaType, @sSocio)
+
+	Set @sAlfa = @sNumSuffix
+
+	
+End
+Else
+Begin
+Select Top 1 @sAlfa = 'B' From dbo.[ImportDDTDett_Pers] Where UniqRow = @iUniqRow And PrdCod In('I-00001', 'I-00002')
+	Set @sAlfa = IsNull(@sAlfa, '')
+	If Len(@sAlfa) = 0
+		Set @sAlfa = 'T'
+
+	Select Top 1
+		@sNumPrefix = IsNull(NumPrefix, ''),
+		@sNumSuffix = IsNull(NumSuffix, ''),
+		@sNumCod = IsNull(NumCod, ''),
+		@sMagMovMod = MagMovMod,
+		@sMagMovModQNE = MagMovModQNE,
+		@sCntRegMod = CntRegMod,
+		@sEmiCau = EmiCau,
+		@bSegueFt = SegueFt
+	From dbo.[DocDef] Where DocTip = @iDocTip And NumSuffix = @sAlfa Order By IsNull(DocDefault, 0) DESC
+End
+
+Delete From dbo.[DocNum] Where ItemID Is Null
+
+If @sNumPrefix <> ''
+	Set @sDocNum = @sNumPrefix + '-' + @sDocNum
+If @sNumSuffix <> ''
+	Set @sDocNum = @sDocNum + '/' + @sNumSuffix
+
+Set @sCntRegMod_ANA = dbo.[udfDD_CntRegMod_ANA](@iAnaType, @sSocio, @iDocTip, @sNumPrefix, @sNumSuffix)
+If IsNull(@sCntRegMod_ANA, '') <> ''
+	Set @sCntRegMod = @sCntRegMod_ANA
+If IsNull(@sCntRegMod, '') = ''
+	Set @sCntRegMod = dbo.[udfDD_CntRegMod](@iDocTip, @sNumPrefix, @sNumSuffix)
+
+Declare @iDocYear int = Year(@tDocDta)
+
+Execute dbo.[uspNumUniqNext_out] @sTable, @iUniqDoc OUTPUT
+
+Declare @iUniqRowRifMC int = 0
+Declare @sDocNumRif varchar(32) = ''
+
+If @iAnaType = 1
+Begin
+
+	Set @sDocNum = REPLACE(@sDocNum, '{DOCNUM}', Cast(@iUniqDoc As varchar(16)))
+
+	Execute dbo.[uspDocNumBuild_out] @sNumCod, @iDocYear, @sNumPrefix, @sNumSuffix, @sDocNum OUTPUT, @iNumero OUTPUT
+
+	Select @iUniqRowRifMC = UniqRowRifMC From dbo.[ImportDDTDett_Pers] Where UniqRow = @iUniqRow
+	Set @iUniqRowRifMC = IsNull(@iUniqRowRifMC, 0)
+	Select @sDocNumRif = ForDocNum From [BpMene].dbo.[ForDoc] FDOC Inner Join [BpMene].dbo.[ImportDDTDett_Pers] IDDTMC On FDOC.Uniq = IDDTMC.UniqDoc Where IDDTMC.UniqRow = @iUniqRowRifMC
+	Set @sDocNumRif = IsNull(@sDocNumRif, '')
+	If Len(@sDocNumRif) > 0
+		Set @sDocNum = @sDocNumRif
+
+--	Set @sTable = dbo.[udfDocTip_TableName](@iFormDocTip, 1)
+--	Set @sSQL = 'Update ' + @sTable + ' Set'
+--				+ ' DocNum = ''' + IsNull(@sDocNum, '') + ''''
+--				+ ',Numero = ' + Cast(@iNumero As varchar(16))
+--				+ ' Where Uniq = ' + @sFormDocUniq
+--	Execute(@sSQL)
+End
+Else
+Begin
+	--Execute dbo.[uspEmiDocWe_docnum_next_out_Pers] @iDocTip, @iDocYear, @sAnaCod, @sAlfa, @sForDocNum OUTPUT, @iNumero OUTPUT
+	Execute dbo.[uspEmiDocWe_docnum_next_out_Pers] @iDocTip, @iDocYear, @sSocio, @sAlfa, @sNumCod, @sNumPrefix, @sNumSuffix, @sForDocNum OUTPUT, @iNumero OUTPUT
+
+	Set @sForDocDta = @tDocDta
+
+	Set @sDocNum = REPLACE(@sDocNum, '{DOCNUM}', Cast(@iUniqDoc As varchar(16)))
+
+	Execute dbo.[uspDocNumBuild_out] @sNumCod, @iDocYear, @sNumPrefix, @sNumSuffix, @sDocNum OUTPUT, @iNumero OUTPUT
+End
+
+If Len(RTrim(LTrim(IsNull(@sAgeCod, '')))) = 0
+	Set @dPrvFix = 0.0
+
+If @iAnaType = 2
+	Set @sLstCod = ''
+
+-- ----------------------------------------------------------------------
+-- TESTATA
+INSERT @wtDocTable(
+	DocTip, DocNum, DocDta, DocOra,
+	ForDocNum, ForDocDta,
+	AnaType, AnaCod, AnaCodFrom, DsmCod,
+	PagCod, AgeCod, PrvFix, PrvSplitCod,
+	LstCod, LstSconti, ShipPayCod, ShipCod, VetCod, VetCod2,
+	DocIvaCod, Divisa, Cambio, CambioDta,
+	TrPorto, TrMezzo, EmiCau, Imballo, SegueFt, AspBeni,
+	Fornitura, Lotto, RapUniq, Packing,
+	VsRif, NsRif, NumExt, DocRif,
+	Info, Info1, Info2, Info3, Info4, Info5, Info6,
+	CntRegMod, MagMovMod, MagMovMod2,
+	NumCod, VetComp,
+	CntRegDta, MagMovDta,
+	CntRegDtaIVA,
+	Numero,
+	Uniq,
+	RecCreate, RecUserID,
+	RecLocked, RecPrinted,
+	SctTotPc, SctTot, SctPagPc, SctPag, SpImballo, SpTra, SpRiba, SpBolli, SpVarie, Peso, PesoNetto, Volume
+	)
+VALUES (
+	@iDocTip, @sDocNum, @tDocDta, @sTime,
+	@sForDocNum, @sForDocDta,
+	@iAnaType, @sSocio, @sAnaCodFrom, @sDsmCod,
+	@sPagCod, @sAgeCod, @dPrvFix, @sPrvSplitCod,
+	@sLstCod, @sLstSconti, @sShipPayCod, @sShipCod, @sVetCod, @sVetCod2,
+	@sDocIvaCod, @sDivisa, @dCambio, @tCambioDta,
+	@iTrPorto, @iTrMezzo, @sEmiCau, @sImballo, @bSegueFt, @sAspBeni,
+	@iFornitura, @sLotto, @iRapUniq, @iPacking,
+	@sVsRif, @sNsRif, @sNumExt, @sDocRif,
+	@sInfo, @sInfo1, @sInfo2, @sInfo3, @sInfo4, @sInfo5, @sInfo6,
+	@sCntRegMod, @sMagMovMod, @sMagMovModQNE,
+	@sNumCod, @dVetComp,
+	@tCntRegDta, @tMagMovDta,
+	@tCntRegDta,
+	@iNumero,
+	@iUniqDoc,
+	@tDate, @iUserID,
+	0, 0,
+	0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+	)
+
+-- ----------------------------------------------------------------------
+-- DETTAGLI
+INSERT @wtDocTableLin(
+	LinNum,
+	PrdCod,
+	PrdCod2,
+	PrdDes,
+	PrdUm2,
+	QtaUm2,
+	PrdUm,
+	PrdQta,
+	PrdPrz,
+	PrdSc,
+	PrdPrz2,
+	TotPrz2,
+	TotPrz,
+	IvaCod,
+	PrvAgeCod,
+	PrdQtaCnsNow,
+	PrdUso,
+	LinMP,
+	MustSpool,
+	SpedMagMoved,
+	OffPrvFix,
+	RowLocked,
+	RowPrinted
+)
+Select
+	1 LinNum,
+	A.PrdCod PrdCod,
+	A.PrdCod PrdCod2,
+	--Left(A.PrdDes, 1024) PrdDes,
+	PRD.PrdDes PrdDes,
+	NULL PrdUm2,
+	NULL QtaUm2,
+	PRD.PrdUm PrdUm,
+	A.Netto PrdQta,
+
+	Case
+		When @iAnaType = 1
+			Then IsNull((Select Top 1 Z.PrdPrz From dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = @sLstCod), 0.0)
+		Else
+			Case
+				When (Select Top 1 IsNull(Z.PrdPrz2, 0.0) From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC) Is Not Null
+					Then IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC), 0.0)
+				Else IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod Order By IsNull(ItemDefault, 0) DESC), 0.0)
+			End
+	End	PrdPrz,
+
+	NULL PrdSc,
+
+	Case
+		When @iAnaType = 1
+			Then IsNull((Select Top 1 Z.PrdPrz From dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = @sLstCod), 0.0)
+		Else
+			Case
+				When (Select Top 1 IsNull(Z.PrdPrz2, 0.0) From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC) Is Not Null
+					Then IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC), 0.0)
+				Else IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod Order By IsNull(ItemDefault, 0) DESC), 0.0)
+			End
+	End	PrdPrz2,
+
+	Case
+		When @iAnaType = 1
+			Then IsNull((Select Top 1 Z.PrdPrz From dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = @sLstCod), 0.0)
+		Else
+			Case
+				When (Select Top 1 IsNull(Z.PrdPrz2, 0.0) From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC) Is Not Null
+					Then IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC), 0.0)
+				Else IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod Order By IsNull(ItemDefault, 0) DESC), 0.0)
+			End
+	End * IsNull(A.Netto, 0.0) TotPrz2,
+
+	Case
+		When @iAnaType = 1
+			Then IsNull((Select Top 1 Z.PrdPrz From dbo.[PrdPrz] Z Where Z.PrdCod = A.PrdCod And Z.LstCod = @sLstCod), 0.0)
+		Else
+			Case
+				When (Select Top 1 IsNull(Z.PrdPrz2, 0.0) From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC) Is Not Null
+					Then IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod And Z.ForCod = @sSocio Order By IsNull(ItemDefault, 0) DESC), 0.0)
+				Else IsNull((Select Top 1 Z.PrdPrz2 From dbo.[PrdFor] Z Where Z.PrdCod = A.PrdCod Order By IsNull(ItemDefault, 0) DESC), 0.0)
+			End
+	End * IsNull(A.Netto, 0.0) TotPrz,
+
+	dbo.[udfPrdCod_IvaCod](A.PrdCod) As IvaCod,
+
+	@sAgeCod PrvAgeCod,
+
+	Case When @iAnaType = 1 Then NULL Else 0.0 End PrdQtaCnsNow,
+	PRD.PrdUso PrdUso,
+	0 LinMP,
+	0 MustSpool,
+	0 SpedMagMoved,
+	0.0 OffPrvFix,
+	0 RowLocked,
+	0 RowPrinted
+From dbo.[ImportDDTDett_Pers] A Inner Join dbo.[PrdAna] PRD On A.PrdCod = PRD.PrdCod
+Where UniqRow = @iUniqRow
+
+
+-- legge ultimo numero-unico di riga
+Set @iUniqLin = 0
+Execute dbo.[uspNumUniqRead_out] @sTable3, @iUniqLin OUTPUT
+
+-- AGGIORNA IvaAlq, PrvAlq, Uniq, UniqDoc
+Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+Select LinNum
+From @wtDocTableLin
+Order By LinNum
+
+Open [cCursor]
+Fetch Next From [cCursor] Into @iLinNum
+While (@@Fetch_Status <> -1)
+BEGIN
+	Set @iUniqLin += 1
+	Update @wtDocTableLin Set
+		IvaAlq = dbo.[udfIvaCod_ALQ](IvaCod),
+		PrvAlq = dbo.[udfPrdCod_PRV](PrdCod, dbo.[udfC_Sconto](PrdSc), @sAgeCod, @sSocio, '', @dPrvFix, 0),
+		Uniq = @iUniqLin,
+		UniqDoc = @iUniqDoc
+	Where LinNum = @iLinNum
+	-- ----------------------------------------------------------
+	Fetch Next From [cCursor] Into @iLinNum
+END -- @@Fetch_Status
+Close [cCursor]
+Deallocate [cCursor]
+
+
+-- annulla Uniq2 + altri update
+Update @wtDocTableLin Set
+	Uniq2 = NULL,
+	LinStat = NULL, LinLavStadio = NULL, LinStatFrom = NULL, LinSaldo = 0,
+	LinOmg = 0,
+	QtaEvs = NULL, QtaEvs2 = NULL,
+	--PrdQtaCnsNow = NULL,
+	--LinMP = NULL,
+	LinRistFrom = NULL,
+	UniqStp = NULL, UniqStpGrp = NULL, UniqStpDta = NULL,
+	--MustSpool = NULL,
+	RowCreate = @tDate, RowUserID = @iUserID, RowChange = @tDate, RowChangeUserID = @iUserID,
+	RowLocked  = 0, RowPrinted = 0
+
+	-- ----------------------------------------------------
+	-- calcolo eventuale spese accessorie
+	-- ----------------------------------------------------
+	-- PagCod
+	-- totale merce attuale da righe al netto di omaggi
+	-- spese bancarie
+
+--		Select @sPagCod = PagCod
+--		From @wtDocTable
+
+Set @sPagCod = IsNull(@sPagCod, '')
+Select @dSpRiba = Spese, @dSctPagPc = Sconto
+From dbo.[PagTab]
+Where ItemID = @sPagCod
+
+Set @dSpRiba = IsNull(@dSpRiba, 0)
+Set @dSctPagPc = IsNull(@dSctPagPc, 0)
+If @dSctPagPc <> 0
+Begin
+	Select @dTotMerce_now = Sum(IsNull(TotPrz2, 0))
+	From @wtDocTableLin
+	Where IsNull(LinOmg, 0) = 0
+
+	Set @dTotMerce_now = IsNull(@dTotMerce_now, 0)
+	Set @dSctPag = Round(@dTotMerce_now * @dSctPagPc / 100.00, 2)
+End
+
+Update @wtDocTable Set
+	SctPagPc = @dSctPagPc,
+	SctPag = @dSctPag,
+	SpRiba = @dSpRiba
+
+--------	If @iDocTip In(16, 26)
+--------	Begin
+--------		-- NOTA DI CREDITO
+--------		Update @wtDocTable Set
+--------			SctPag = -Abs(SctPag),
+--------			SpImballo = -Abs(SpImballo),
+--------			SpTra = -Abs(SpTra),
+--------			SpRiba = -Abs(SpRiba),
+--------			SpBolli = -Abs(SpBolli),
+--------			SpVarie = -Abs(SpVarie)
+--------
+--------		Update @wtDocTableLin Set
+--------			PrdPrz = -Abs(PrdPrz),
+--------			PrdPrz2 = -Abs(PrdPrz2),
+--------			PrdAdd = -Abs(PrdAdd),
+--------			TotPrz2 = -Abs(TotPrz2),
+--------			PrzLst = -Abs(PrzLst),
+--------			TotPrz = -Abs(TotPrz),
+--------			TotPrz2C = -Abs(TotPrz2C),
+--------			TotPrz2S = -Abs(TotPrz2S),
+--------			TotDivisaP = -Abs(TotDivisaP),
+--------			TotQta2 = -Abs(TotQta2)
+--------	End
+
+-- -----------------------------------------------------------
+-- Scrive ultimo numero-unico di riga
+Execute dbo.[uspNumUniqUpdate] 	@sTable3, @iUniqLin
+-- -----------------------------------------------------------
+--
+-- copia nelle tabelle reali
+--
+
+--	If @sTableID = 'CliOff'
+--	Begin
+--		Insert dbo.[CliOff] Select * From @wtDocTable
+--		Insert dbo.[CliOffLin] Select * From @wtDocTableLin
+--	End
+--
+--	Else If @sTableID = 'CliOrd'
+--	Begin
+--		Insert dbo.[CliOrd] Select * From @wtDocTable
+
+--		Insert dbo.[CliOrdLin] Select * From @wtDocTableLin
+--	End
+--
+--	Else If @sTableID = 'CliDoc'
+--	Begin
+--		Insert dbo.[CliDoc] Select * From @wtDocTable
+--		Insert dbo.[CliDocLin] Select * From @wtDocTableLin
+--	End
+
+If @iAnaType = 1
+	Update @wtDocTableLin Set
+		Tm = 1,
+		TmCalc = 1,
+		OffQta = 0.0,
+		OffMinFt = 0.0,
+		OffMinFt1 = 0.0,
+		OffMinFt2 = 0.0,
+		PrzLstCod = @sLstCod,
+		PrzLst = PrdPrz
+
+
+If @sTableID = 'CliDoc'
+Begin
+	Insert dbo.[CliDoc] Select * From @wtDocTable
+	Insert dbo.[CliDocLin] Select * From @wtDocTableLin
+End
+
+Else If @sTableID = 'ForDoc'
+Begin
+	Insert dbo.[ForDoc] Select * From @wtDocTable
+	Insert dbo.[ForDocLin] Select * From @wtDocTableLin
+End
+
+--	Else If @sTableID = 'PosDoc'
+--	Begin
+--		-- SCONTRINO
+--		Insert dbo.[PosDoc](
+--			DocTip, DocNum, DocDta, DocOra,
+--			AnaType, AnaCod,
+--
+--			DocDone,
+--			DocPayed,
+--			PayType,
+--
+--			LstCod, MagMovMod,
+--			NumCod, Numero, Uniq,
+--			RecCreate, RecUserID,
+--			RecType
+--			)
+--
+--		Select
+--			DocTip, DocNum, DocDta, DocOra,
+--			AnaType, AnaCod,
+--			NULL As DocDone,
+--			0 As DocPayed,
+--			NULL As PayType,
+--			LstCod, MagMovMod,
+--			NumCod, Numero, Uniq,
+--			RecCreate, RecUserID,
+--			NULL As RecType
+--		From @wtDocTable
+--
+--		Insert dbo.[PosDocLin](
+--			LinNum, LinOmg,
+--			PrdCod, PrdDes, PrdUm, PrdQta, PrdPrz, PrdSc, PrdPrz2, TotPrz2,
+--			IvaCod, IvaAlq,
+--			PrzLst, TotPrz, TotPrz2C, TotPrz2S,
+--			Uniq, UniqDoc,
+--			DocTipFrom, UniqFrom, UniqLinFrom,
+--			RowCreate, RowUserID,  RowChange, RowChangeUserID
+--			)
+--		Select
+--			LinNum, LinOmg,
+--			PrdCod, PrdDes, PrdUm, PrdQta, PrdPrz, PrdSc, PrdPrz2, TotPrz2,
+--			IvaCod, IvaAlq,
+--			PrzLst, TotPrz, TotPrz2C, TotPrz2S,
+--			Uniq, UniqDoc,
+--			DocTipFrom, UniqFrom, UniqLinFrom,
+--			RowCreate, RowUserID,  RowChange, RowChangeUserID
+--		From @wtDocTableLin
+--
+--		-- TOTALI, dettaglio IVA
+--		-- NOTA: i prezzi devono essere IVATI
+--		Execute dbo.[uspPOS_total_update] @iSession, @iUniqDoc
+--	End
+
+-- ==============================================
+
+
+
+Execute dbo.[uspDD_Total_update] 0, @iDocTip, @iUniqDoc, 0,0,0,0,0,0,0
+
+If @sTableID = 'CliDoc'
+	Update dbo.[CliDoc] Set RecValue = DocImp, SctPag = Case When SctPag Is Null Then 0.0 Else SctPag End Where Uniq = @iUniqDoc
+Else If @sTableID = 'ForDoc'
+	Update dbo.[ForDoc] Set RecValue = DocImp, SctPag = Case When SctPag Is Null Then 0.0 Else SctPag End Where Uniq = @iUniqDoc
+
+Declare @sReturnSCRIPT varchar(4096) = ''
+Declare @bUsePrdQtaCnsNow bit = 0
+Declare @iMagMovUniq int = 0
+Declare @bDibaElab bit = 0
+
+Execute dbo.[uspNumUniqNext_out] 'MagMov', @iMagMovUniq OUTPUT
+
+Execute dbo.[uspDD_build_MagMov] @iSession, @iMagMovUniq, @iDocTip, @iUniqDoc, @bUsePrdQtaCnsNow, @bDibaElab OUTPUT
+
+If @bDibaElab = 1
+Begin
+	Set @sReturnSCRIPT = 'DocMagMovDiba(' + Cast(@iMagMovUniq As varchar(8)) + ')'
+End
+Else
+Begin
+	If Not Exists(Select TOP 1 UniqMov From dbo.[MagMovLin]	Where UniqMov = @iMagMovUniq)
+	Begin
+		Delete dbo.[MagMov]
+		Where Uniq = @iMagMovUniq
+	End
+End

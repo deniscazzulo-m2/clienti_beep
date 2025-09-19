@@ -1,0 +1,268 @@
+/*
+*
+*
+*
+*/
+CREATE PROCEDURE [uspImportDDT_Pers]
+	@sUserLogin varchar(32)
+AS
+SET NOCOUNT ON
+
+Declare @bErr bit = 0
+Declare @iCntOK int = 0
+Declare @iCntErr int = 0
+
+Declare @iElabID int
+
+Declare @sCmd varchar(1024) = ''
+Declare @sFolder varchar(1024) = ''
+
+Declare @iCnt int = 0
+Declare @iIndex int
+
+Declare @sFileNameDir varchar(1024)
+Declare @sLinea varchar(1024)
+Declare @sSep varchar(8) = '|'
+
+Declare @iPos int
+Declare @sToken varchar(1024)
+
+Declare @sExtToFind varchar(8) = '.csv'
+
+Declare @sMsg varchar(Max) = ''
+
+Declare @tbData TABLE(
+	[FileNameDir] varchar(1024),
+	[UniqRow] int IDENTITY
+	)
+
+Declare @tbFileBody TABLE(
+	[Linea] varchar(1024),
+	[UniqRow] int IDENTITY
+	)
+
+Declare @sPrdCod varchar(32)
+Declare @sPrdDes varchar(1024)
+Declare @sSocio varchar(32)
+Declare @sTerzista varchar(32)
+Declare @dLordo decimal(19, 6)
+Declare @dTara decimal(19, 6)
+Declare @dNetto decimal(19, 6)
+Declare @tEffettuato smalldatetime
+
+Declare @sTmp varchar(Max)
+
+
+Select @sFolder = ItemValue From dbo.[ImportDDTPar_Pers] Where ItemID = 'CARTELLA'
+Set @sFolder = RTrim(LTrim(IsNull(@sFolder, '')))
+
+If Len(@sFolder) = 0
+	Set @sMsg = 'Parametro relativo alla cartella di importazione mancante o non valido'
+
+If Len(@sMsg) = 0
+Begin
+	Set @sFolder = Replace(@sFolder, '/', '\')
+	If Right(@sFolder, 1) <> '\'
+		Set @sFolder = @sFolder + '\'
+	Set @sCmd = 'dir "' + @sFolder + '*' + @sExtToFind + '" /B'--ottiene la lista di file csv
+
+	Insert Into @tbData(FileNameDir)
+	EXEC [master].dbo.[xp_cmdshell] @sCmd
+
+	Delete From @tbData Where FileNameDir Like 'File n%' Or FileNameDir Like 'Impossibile %' Or Len(RTrim(LTrim(IsNull(FileNameDir, '')))) = 0
+
+	Select @iCnt = Count(*) From @tbData
+	Set @iCnt = IsNull(@iCnt, 0)
+
+	If @iCnt = 0
+		Set @sMsg = 'Non sono presenti file da importare nella cartella ''' + @sFolder + ''''
+End
+
+If Len(@sMsg) = 0
+Begin
+	Declare cCursor_ListFileToImp Cursor FAST_FORWARD For
+	Select FileNameDir From @tbData
+	Open cCursor_ListFileToImp
+	Fetch Next From cCursor_ListFileToImp Into @sFileNameDir
+	While @@Fetch_Status <> -1
+	Begin
+		Execute dbo.[uspNumUniqNext_out] 'IMPORTDDT_PERS', @iElabID OUTPUT
+
+		Set @sCmd = 'type "' + @sFolder + '*' + @sFileNameDir + '"'--ottiene le righe nel file csv
+
+		Delete From @tbFileBody
+
+		Insert Into @tbFileBody(Linea)
+		EXEC [master].dbo.[xp_cmdshell] @sCmd
+
+		Delete From @tbFileBody Where CharIndex('´++', Linea) > 0 Or Len(RTrim(LTrim(IsNull(Linea, '')))) = 0 Or CharIndex(@sFileNameDir, Linea) > 0 Or CharIndex(',', Linea) = 0
+
+		Select @iCnt = Count(*) From @tbFileBody
+		Set @iCnt = IsNull(@iCnt, 0)
+
+		If @iCnt = 0
+		Begin
+			Set @bErr = 1 -- Solo per tracciare la variabile
+			Set @iCntErr += 1
+
+
+
+
+			Insert Into dbo.[ImportDDT_Pers](ElabID, NomeFile, Stato, UserLogin, NoteElab)
+			Values(@iElabID, @sFileNameDir, 'S', @sUserLogin, 'NON RILEVATE LINEE DA IMPORTARE')
+		End
+
+		If @iCnt > 0
+		Begin
+
+			Set @bErr = 0
+
+			Insert Into dbo.[ImportDDT_Pers](ElabID, NomeFile, Stato, UserLogin, NoteElab)
+			Values(@iElabID, @sFileNameDir, 'I', @sUserLogin, '')
+
+			Declare cCursor_FileToImp Cursor FAST_FORWARD For
+			Select RTrim(LTrim(Linea)) From @tbFileBody Order By UniqRow
+			Open cCursor_FileToImp
+			Fetch Next From cCursor_FileToImp Into @sLinea
+			While (@@Fetch_Status <> -1) And (@bErr = 0)
+			Begin
+				If Left(@sLinea, 1) = ''''
+					Set @sLinea = LTrim(Right(@sLinea, Len(@sLinea) - 1))
+				If Right(@sLinea, 1) = ''''
+					Set @sLinea = RTrim(Left(@sLinea, Len(@sLinea) - 1))
+
+				Set @sLinea = Replace(@sLinea, ''',''', @sSep)
+
+				Declare cCursor_LineToImp Cursor FAST_FORWARD For
+				Select Pos, RTrim(LTrim(IsNull(A.Token, ''))) Token From .dbo.[udfStrSplit](@sLinea, @sSep) A Order By Pos
+				Open cCursor_LineToImp
+				Fetch Next From cCursor_LineToImp Into @iPos, @sToken
+				While @@Fetch_Status <> -1
+				Begin
+					If @iPos = 0 -- Effettuato
+					Begin
+						Set @sTmp = @sToken
+
+						-- PRINT @sFileNameDir + ' --- @tEffettuato -- conversione data 1 --- ' + @sToken + ' --- ' + @sTmp
+
+						Set @sTmp = Replace(Replace(@sTmp, '-', '/'), '\', '/')
+						If (CharIndex('/', @sTmp) = 5) And (Len(@sTmp) >= 10)
+							Set @sTmp = SubString(@sTmp, 9, 2) + '/' + SubString(@sTmp, 6, 2) + '/' + Left(@sTmp, 4) + Right(@sTmp, Len(@sTmp) - 10)
+
+						-- PRINT @sFileNameDir + ' --- @tEffettuato -- conversione data 2 --- ' + @sToken + ' --- ' + @sTmp
+
+						If IsDate(@sTmp) = 1
+							Set @tEffettuato = Cast(@sTmp As smalldatetime)
+						Else
+						Begin
+							Set @bErr = 1
+							Set @tEffettuato = NULL
+							
+							-- PRINT @sFileNameDir + ' --- @tEffettuato -- data non rilevata --- ' + @sToken + ' --- ' + @sTmp
+						End
+					End
+					Else If @iPos = 1 -- Codice_Terzista
+						Set @sTerzista = @sToken
+					Else If @iPos = 2 -- Codice_Prodotto
+						Begin
+							Set @sPrdCod = @sToken
+							
+							If Left(@sPrdCod, 1) <> 'U' And Left(@sPrdCod, 1) <> 'I'
+								Begin
+									Set @bErr = 1
+									Set @sPrdCod = NULL
+								End
+						End
+					Else If @iPos = 3 -- Nome_Prodotto
+						Set @sPrdDes = @sToken
+					Else If @iPos = 4 -- Lordo
+						Begin
+							Set @dLordo = 0.0
+							Set @sTmp = Replace(@sToken, ',', '.')
+							If Len(@sTmp) > 0
+							Begin
+								If IsNumeric(@sTmp) = 1
+									Set @dLordo = Cast(Replace(@sTmp, ',', '.') As decimal(19, 6))
+							End
+						End
+					Else If @iPos = 5 -- Tara
+						Begin
+							Set @dTara = 0.0
+							Set @sTmp = Replace(@sToken, ',', '.')
+							If Len(@sTmp) > 0
+							Begin
+								If IsNumeric(@sTmp) = 1
+									Set @dTara = Cast(Replace(@sTmp, ',', '.') As decimal(19, 6))
+							End
+						End
+					Else If @iPos = 6 -- Netto
+						Begin
+							Set @dNetto = 0.0
+							Set @sTmp = Replace(@sToken, ',', '.')
+							If Len(@sTmp) > 0
+							Begin
+								If IsNumeric(@sTmp) = 1
+									Set @dNetto = Cast(Replace(@sTmp, ',', '.') As decimal(19, 6))
+							End
+						End
+					Else If @iPos = 7 -- Codice_Socio
+						Begin
+							Set @sSocio = @sToken
+							
+							If IsNull((Select Top 1 1 From dbo.[MixAna] Where ItemType = 1 And ItemID = @sSocio), 0) <> 1
+								Begin
+									Set @bErr = 1
+									Set @sSocio = NULL
+								End
+						End
+						
+
+					If @bErr = 0
+						Fetch Next From cCursor_LineToImp Into @iPos, @sToken
+					Else
+						BREAK
+				End
+				Close cCursor_LineToImp
+				Deallocate cCursor_LineToImp
+
+				If @iPos < 7 Or Len(RTrim(LTrim(IsNull(@sSocio,'')))) = 0
+				Begin
+					Set @bErr = 1
+				End
+
+				If @bErr = 0
+				Begin
+					Insert Into dbo.[ImportDDTDett_Pers](ElabID, Socio, Terzista, PrdCod, PrdDes, Lordo, Tara, Netto, Effettuato)
+					Values(@iElabID, @sSocio, @sTerzista, @sPrdCod, @sPrdDes, @dLordo, @dTara, @dNetto, @tEffettuato)
+
+					Fetch Next From cCursor_FileToImp Into @sLinea
+				End
+			End
+			Close cCursor_FileToImp
+			Deallocate cCursor_FileToImp
+
+			If @bErr = 0
+			Begin
+				Set @iCntOK += 1
+
+				Set @sCmd = 'del "' + @sFolder + '*' + @sFileNameDir + '" /Q'
+				EXEC [master].dbo.[xp_cmdshell] @sCmd, NO_OUTPUT
+			End
+			Else
+			Begin
+				Set @iCntErr += 1
+
+				Update dbo.[ImportDDT_Pers] Set Stato = 'S', NoteElab = 'RISCONTRATA ANOMALIA NEL CORPO DEL FILE' Where ElabID = @iElabID
+			End
+		End
+
+		Fetch Next From cCursor_ListFileToImp Into @sFileNameDir
+	End
+	Close cCursor_ListFileToImp
+	Deallocate cCursor_ListFileToImp
+End
+
+If Len(@sMsg) = 0
+	Set @sMsg = 'Operazione terminata. Importati ' + RTrim(LTrim(Cast((@iCntOK + @iCntErr) As varchar(16)))) + ' file' + Case When @iCntErr > 0 Then ' - Scartati ' + RTrim(LTrim(Cast((@iCntErr) As varchar(16)))) + ' file' Else '' End
+
+Select @sMsg Res

@@ -1,0 +1,49 @@
+/****** Script per comando SelectTopNRows da SSMS  ******/
+SELECT TOP (1000) [id]
+      ,[Cod.]--[ItemID]
+      ,[Codice fiscale]--[CFis]
+      ,[Partita Iva]--[PIva]
+      ,[Denominazione]--[ItemDes]
+      ,[Indirizzo]--[Ind]
+      ,[Cap]--[Cap]
+      ,[Citta]--[Loc]
+      ,[Prov.]--[Pro]
+      ,[Regione]--[Reg]
+      ,[Nazione]--[Naz]	UPPERCASE
+      ,[Cod. destinatario Fatt. elettr.]--[FepaDest]
+      ,[Rif. ammin. Fatt. elettr.]
+      ,[Referente]--[MixAnaRif].[WhoName]	[Info1]
+      ,[Tel.]--[MixAnaRif].[Tel1]	[Info2]
+      ,[Cell]--[MixAnaRif].[Tel2]	[Info3]
+      ,[Fax]--[MixAnaRif].[Tel3]	[Info3]
+      ,[e-mail]--[MixAnaRif].[MailAddress]	[ItemMemo]
+      ,[Pec]--[FepaPEC]
+      ,[Sconti]--N O
+      ,[Listino]--MANCA TABELLA LISTINI	[Info6]
+      ,[Fido]--N O
+      ,[Agente]--[AgeName]
+      ,[Pagamento]--[PagCod]
+      ,[Banca]--[Banca]
+      ,[Ns Banca]--[BanCod] MANCA TABELLA NOSTRE BANCHE	[Info5]
+      ,[Data Mandato SDD]--N O
+      ,[Emissione SDD]
+      ,[Resp. trasporto]
+      ,[Porto]--[TrPorto] Franco=>1
+      ,[Fatt. con Iva]--N O
+      ,[Dich. dintento]--N O
+      ,[Data dich. dintento]--N O
+      ,[Conto reg.]--N O
+      ,[Rit. acconto]
+      ,[Doc via e-mail]
+      ,[Avviso nuovi doc.]--N O
+      ,[Note doc.]--N O
+      ,[Home page]--N O
+      ,[Login web]--N O
+      ,[Extra 1]--N O
+      ,[Extra 2]--N O
+      ,[Extra 3]--N O
+      ,[Extra 4]--N O
+      ,[Extra 5]--N O
+      ,[Extra 6]--N O
+      ,[Note]--[ItemInfo]
+  FROM [BpM2TEST].[dbo].[tempFornitori]

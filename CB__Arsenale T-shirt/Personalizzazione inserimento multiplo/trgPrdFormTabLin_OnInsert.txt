@@ -1,0 +1,14 @@
+/* 
+*
+*
+*
+*/
+CREATE TRIGGER [trgPrdFormTabLin_OnInsert]
+ON dbo.[PrdFormTabLin]
+FOR INSERT
+AS
+SET NOCOUNT ON
+IF ISNULL((SELECT TOP 1 1 [TabCod] From dbo.[PrdFormTab] WHERE [TabCod] = (SELECT [TabCod] FROM inserted)),0) = 0
+	INSERT dbo.[PrdFormTab]([TabCod],[TabDes])
+	SELECT [TabCod], CONCAT('Nuovo elenco colori per ',dbo.[udfStrReplacePattern]([TabCod],'§%',''))
+	From inserted

@@ -1,0 +1,51 @@
+/****** Script per comando SelectTopNRows da SSMS  ******/
+SELECT TOP (1000) [id]
+      ,[Cod.]--PrdCod
+      ,[Descrizione]--[PrdDes]
+      ,[Tipologia]--[GrpCod]	MANCA TABELLA TIPOLOGIE
+      ,[Categoria]--[CatCod]	MANCA TABELLA CATEGORIE
+      ,[Sottocategoria]--[TreeCod]	MANCA TABELLA SOTTOCATEGORIE
+      ,[Cod. Udm]--[PrdUm]	cl=>CC	l=>LT	mt=>MT	rotolo,pz=>PZ	kg=>KG
+      ,[Cod. Iva]--[IvaCod]	N41=>41
+      ,[Listino 1]--[PrdPrz].[PrdPrz]	[Info1]
+      ,[Listino 2]--[PrdPrz].[PrdPrz]	[Info1]
+      ,[Listino 3]--[PrdPrz].[PrdPrz]	[Info1]
+      ,[Formula listino 1]-- N O
+      ,[Formula listino 2]--[PrdPrz].[ItemInfo]	[Info2]
+      ,[Formula listino 3]--[PrdPrz].[ItemInfo]	[Info2]
+      ,[Note]--[PrdInfo]
+      ,[Cod. a barre]--[MixAnaAlias].[AliasID]	[Info3]
+      ,[Classe provvigione]-- N O
+      ,[Internet]-- N O
+      ,[Produttore]--[PdtCod]	MANCA TABELLA PRODUTTORI
+      ,[Extra 1]-- N O
+      ,[Extra 2]-- N O
+      ,[Extra 3]-- N O
+      ,[Extra 4]-- N O
+      ,[Cod. fornitore]--[PrdFor].[ForCod]	[Info4]
+      ,[Fornitore]-- N O
+      ,[Cod. prod. forn.]--[PrdFor].[PrdForCod]	[Info4]
+      ,[Prezzo forn.]--[PrdFor].[PrdPrz]	[Info5]
+      ,[Note fornitura]-- N O
+      ,[Ord. a multipli di]-- N O
+      ,[Gg. ordine]--[PrdFor].[PrdPrz]	[Info5]
+      ,[Scorta min.]--[QtaMin]
+      ,[Ubicazione]
+      ,[Tot. q.ta caricata]
+      ,[Tot. q.ta scaricata]
+      ,[Q.ta giacenza]
+      ,[Q.ta impegnata]
+      ,[Q.ta disponibile]
+      ,[Q.ta in arrivo]
+      ,[Vendita media mensile]
+      ,[Stima data fine magazz.]
+      ,[Stima data prossimo ordine]
+      ,[Data primo carico]
+      ,[Data ultimo carico]
+      ,[Data ultimo scarico]
+      ,[Costo medio dacq.]
+      ,[Ultimo costo dacq.]
+      ,[Prezzo medio vend.]
+      ,[Stato magazzino]
+      ,[Immagine]
+  FROM [BpM2TEST].[dbo].[tempProdotti]
