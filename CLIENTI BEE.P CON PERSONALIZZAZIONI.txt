@@ -1,0 +1,47 @@
+-OLIVERO ORGANIC/ALL CLEAN/BOSIO IMPIANTI/EUROLEGNO: non riesco ad entrare devo chiedere a loro se mi fanno entrare un attimo
+-TERMOPLASTICA: da visionare perché ci stai lavorando tu sopra per la DEMO 
+
+NO PERSONALIZZAZIONI:
+Area Casa
+Arsenale della T-shirt
+Btb
+Esse Ti 
+Grisval
+Guiot 
+Laudati Piscine
+Legnami Priola
+Promoser 
+Skill
+Soa Servizi
+Somale Carpenteria
+Spit
+Tecnofruit
+Termoidraulica
+
+
+-PASTA BOSSOLASCO: notifiche aziendali(?)
+-VM IDROX: voce di menù "VM IDROX": stare attenti perché questa voce si collega ai dati inviati tramite Bee.p Web
+
+-GRIOT: personalizzazioni del palmare e mappe(me lo ricordo così, non ho il collegamento da remoto purtroppo) 
+
+-RIPET: voce del menù D.D.T.(totalmente personalizzata)
+Nella voce di menù MAGAZZINO aggiunta voce "manutentori/riparatori"
+Nella voce di menù contabilità aggiunta voce "centri di costo"
+
+-FATTORIE PIEMONTE: voce del menù VENDITE- le seguenti sotto voci sono personalizzate:
+dt pagati/da pagare
+Preparazione articoli e clienti per palmare
+Preparazione articoli e conti per domani 
+Acquisizione ddt da palmare
+Gestione ddt da palmare
+Parametri di gestione file ddt
+VOCE DEL MENU' TABELLE: personalizzazione delle sotto voci capannoni, imballaggi, bancali, configurazione Filconad
+VOCE DEL MENU' ANAGRAFICHE: personalizzazione delle sotto voci giri autisti, dettagli giri, mappa
+VOCE DEL MENU' MAGAZZINO: personalizzazione delle sotto voci gestione etichette, gestione bancali, riepilogo bancali
+
+-MONDO SOLE: voce del menù B2B(non so cosa sia però)
+
+-BIOGAS MENE': voce del menù personalizzata "CONSORZIO" con tutte le relative sotto voci.
+VOCE DEL MENU' MAGAZZINO: personalizzazione delle sotto voci "gestione file ddt" e "parametri di gestione file ddt"(occhio che qua c'è l'esportazione).
+
+-SIVAR: voce del menù VENDITE personalizzazione delle sotto voci aggiornamento automatico listini, composizione listini e consorzio pezzi, elenco indirizzi e-mail clienti fatturati, elenco indirizzi e-mail fatture ricevute.
