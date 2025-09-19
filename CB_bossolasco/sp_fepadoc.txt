@@ -295,6 +295,24 @@ Select
 From dbo.[MixAna]
 Where ItemType = 50
 
+-- X Carrefour
+Declare @sDepCod varchar(64) = ''
+Declare @bDepCodOK bit = 0
+Declare @iDDTUniqFrom int = 0
+Declare @sDDT_DOC_DsmCod varchar(16) = ''
+Declare @sNCRifDDTNum varchar(32) = ''
+Declare @sNCRifDDTDta varchar(32) = ''
+Declare @sNCRifFTNum varchar(32) = ''
+Declare @sNCRifFTDta varchar(32) = ''
+Declare @sLinRif varchar(128) = ''
+
+Declare @sDOC_Info1 varchar(64) = ''
+Declare @sDOC_Info2 varchar(64) = ''
+Declare @sDOC_Info3 varchar(64) = ''
+Declare @bDOC_InfoNCOK bit = 0
+
+Declare @sPrdAlt varchar(32) = ''
+Declare @sPrdFather varchar(32) = ''
 -- ---------------------------------------------------------------------
 -- estremi documento, fornitura
 --
@@ -326,6 +344,10 @@ Select
 	, @dDOC_SpRiba = DOC.SpRiba
 	, @dDOC_SpBolli = DOC.SpBolli
 	, @dDOC_SpVarie = DOC.SpVarie
+-- X Carrefour
+	, @sDOC_Info1 = DOC.Info1
+	, @sDOC_Info2 = DOC.Info2
+	, @sDOC_Info3 = DOC.Info3
 
 	, @sSupply_FepaDest = SUP.FepaDest
 	, @sSupply_CIG = SUP.ItemCIG
@@ -341,6 +363,101 @@ From dbo.[CliDoc] DOC
 Left Join dbo.[SupplyAna] SUP On SUP.ItemID = DOC.Fornitura
 Where DOC.Uniq = @iDocUniq
 
+-- X Carrefour
+If @sDOC_AnaCod = '02907'
+Begin
+	If @iDOC_DocTip In(15, 16)
+	Begin
+		If @iDOC_DocTip = 16
+		Begin
+			Set @sDOC_Info1 = RTrim(LTrim(IsNull(@sDOC_Info1, '')))
+			Set @sDOC_Info2 = RTrim(LTrim(IsNull(@sDOC_Info2, '')))
+			Set @sDOC_Info3 = RTrim(LTrim(IsNull(@sDOC_Info3, '')))
+
+			If (Len(@sDOC_Info1) > 0) And (Len(@sDOC_Info2) > 0) And (Len(@sDOC_Info3) > 0)
+			Begin
+				If IsDate(@sDOC_Info3) <> 0
+				Begin
+					If @sDOC_Info1 In('FT', 'RECME')
+					Begin
+						Set @sNCRifFTNum = @sDOC_Info2
+						Set @sNCRifFTDta = @sDOC_Info3
+					End
+					Else If @sDOC_Info1 = 'DDT'
+					Begin
+						Set @sNCRifDDTNum = @sDOC_Info2
+						Set @sNCRifDDTDta = @sDOC_Info3
+					End
+
+					If (Len(@sNCRifFTNum) > 0) Or (Len(@sNCRifDDTNum) > 0)
+						Set @bDOC_InfoNCOK = 1
+				End
+			End
+		End
+
+		Set @sDepCod = ''
+
+		Select
+			-- @sDepCod = RTrim(LTrim(Left(IsNull(ItemInfo, ''), 60)))
+			@sDepCod = RTrim(Left(RTrim(LTrim(IsNull(ItemInfo, ''))), 7))
+		From
+			dbo.[MixAnaSedi]
+		Where
+			ItemType = 1
+			And ItemID = @sDOC_AnaCod
+			And ItemIDSede = @sDOC_DsmCod
+
+		Set @sDepCod = RTrim(LTrim(IsNull(@sDepCod, '')))
+
+		If Len(@sDepCod) = 0
+		Begin
+			Set @iDDTUniqFrom = 0
+
+			Select Top 1
+				@iDDTUniqFrom = UniqFrom
+			From
+				dbo.[CliDocLin]
+			Where
+				UniqDoc = @iDocUniq
+				And DocTipFrom = 14
+				And IsNull(UniqFrom, 0) > 0
+
+			Set @iDDTUniqFrom = IsNull(@iDDTUniqFrom, 0)
+
+			If @iDDTUniqFrom > 0
+			Begin
+				Set @sDDT_DOC_DsmCod = ''
+
+				Select
+					@sDDT_DOC_DsmCod = DsmCod
+				From
+					dbo.[CliDoc]
+				Where
+					Uniq = @iDDTUniqFrom
+
+				Set @sDDT_DOC_DsmCod = IsNull(@sDDT_DOC_DsmCod, '')
+
+				If Len(@sDDT_DOC_DsmCod) > 0
+				Begin
+					Select
+						-- @sDepCod = RTrim(LTrim(Left(IsNull(ItemInfo, ''), 60)))
+						@sDepCod = RTrim(Left(RTrim(LTrim(IsNull(ItemInfo, ''))), 7))
+					From
+						dbo.[MixAnaSedi]
+					Where
+						ItemType = 1
+						And ItemID = @sDOC_AnaCod
+						And ItemIDSede = @sDDT_DOC_DsmCod
+
+					Set @sDepCod = RTrim(LTrim(IsNull(@sDepCod, '')))
+				End
+			End
+		End
+
+		If Len(@sDepCod) > 0
+			Set @bDepCodOK = 1
+	End
+End
 -- ----------------------------------------------------------
 Set @sDOC_DocNumPrefix = dbo.[udfDocNum_split](1, @sDOC_DocNum)
 Set @sDOC_DocNumSuffix = dbo.[udfDocNum_split](2, @sDOC_DocNum)
@@ -1380,6 +1497,18 @@ Begin
 	Deallocate [cCursor]
 End -- @sBuildPrdCodDocRif <> ''
 
+-- X Carrefour
+If @bDOC_InfoNCOK <> 0
+Begin
+	If Len(@sNCRifFTNum) > 0
+	Begin
+		Insert [#TAGs](TagText) Values('<DatiFattureCollegate>')
+		Insert [#TAGs](TagText) Values('<IdDocumento>' + @sNCRifFTNum + '</IdDocumento>')
+		Insert [#TAGs](TagText) Values('<Data>' + dbo.[udfFepa_XML_date](Cast(@sNCRifFTDta As date)) + '</Data>')
+		Insert [#TAGs](TagText) Values('</DatiFattureCollegate>')
+	End
+End -- @bDOC_InfoNCOK <> 0
+
 If (@iDOC_Fornitura <> 0) And (@iSupply_FaseSAL > 0)
 Begin
 	Insert [#TAGs](TagText) Values
@@ -1414,6 +1543,18 @@ Begin
 	Close [cCursor]
 	Deallocate [cCursor]
 End -- @iCountDDT > 0
+
+-- X Carrefour
+If @bDOC_InfoNCOK <> 0
+Begin
+	If Len(@sNCRifDDTNum) > 0
+	Begin
+		Insert [#TAGs](TagText) Values('<DatiDDT>')
+		Insert [#TAGs](TagText) Values('<NumeroDDT>' + @sNCRifDDTNum + '</NumeroDDT>')
+		Insert [#TAGs](TagText) Values('<DataDDT>' + dbo.[udfFepa_XML_date](Cast(@sNCRifDDTDta As date)) + '</DataDDT>')
+		Insert [#TAGs](TagText) Values('</DatiDDT>')
+	End
+End -- @bDOC_InfoNCOK <> 0
 
 
 -- <DatiTrasporto>
@@ -1523,6 +1664,8 @@ BEGIN
 		, LIN.PrdUso
 		, LIN.DocTipFrom, LIN.UniqFrom, LIN.UniqLinFrom
 		, PRD.Info1, PRD.Tab1
+		-- X Carrefour
+		, LTrim(RTrim(IsNull(LIN.LinRif, ''))) LinRif
 	From dbo.[CliDocLin] LIN
 	Left Join dbo.[PrdAna] PRD On PRD.PrdCod = LIN.PrdCod
 	Left Join dbo.[IvaTab] IVA On IVA.ItemID = LIN.IvaCod
@@ -1540,6 +1683,8 @@ BEGIN
 				, @iPrdUso
 				, @iDocTipFrom, @iUniqFrom, @iUniqLinFrom
 				, @sPRD_Info1, @sPRD_Tab1
+				-- X Carrefour
+				, @sLinRif
 	While (@@Fetch_Status <> -1)
 	Begin
 		Set @iRow += 1
@@ -1722,6 +1867,16 @@ BEGIN
 
 			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
 		End
+		
+		-- X Carrefour
+		If (@sDOC_AnaCod = '02907') And (@sDOC_Info1 In('EXTRAFATTURA ACCONTO', 'EXTRAFATTURA SALDO')) And (Len(@sLinRif) > 0)
+		Begin
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>EXTRAFT</TipoDato>')
+			Set @sLinRif = Replace(dbo.[udfFepa_XML_normalize](@sLinRif), '€', 'EUR')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + RTrim(Left(@sLinRif, 60)) + '</RiferimentoTesto>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
 
 		If @bLinOmg = 1
 		Begin
@@ -1832,6 +1987,8 @@ BEGIN
 					, @iPrdUso
 					, @iDocTipFrom, @iUniqFrom, @iUniqLinFrom
 					, @sPRD_Info1, @sPRD_Tab1
+					-- X Carrefour
+					, @sLinRif
 	End
 	Close [cCursor]
 	Deallocate [cCursor]
