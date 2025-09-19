@@ -1,0 +1,134 @@
+;WITH AggDates AS (
+SELECT
+lin.PrdCod AS Codice_Articolo,
+MAX(CASE WHEN lin.MovCau = 'VND' THEN CAST(testa.DocDta AS date) END) AS DataUltVendita,
+MAX(CASE WHEN lin.MovCau = 'ACQ' THEN CAST(testa.DocDta AS date) END) AS DataUltAcquisto,
+MIN(CASE WHEN lin.MovCau = 'ACQ' THEN CAST(testa.DocDta AS date) END) AS DataPrimAcquisto,
+MAX(CAST(testa.DocDta AS date)) AS DataUltMovimentazione -- <<< NEW: indipendente dalla causale
+FROM magMov AS testa
+INNER JOIN magMovLin AS lin
+ON lin.UniqMov = testa.Uniq
+GROUP BY lin.PrdCod
+)
+SELECT
+a.Codice_Articolo,
+p.PrdDes AS Descrizione_Articolo,
+p.PrdUm AS Unita_misura,
+p.IVACod AS iva,
+p.GrpCod AS gruppo_merceologico,
+cat.DescCatMerc,
+
+-- fornitore preferenziale (1:1 via APPLY)
+pf.ForCod AS cod_fornitore_preferenziale,
+anagPref.ItemDes AS rag_Soc_fornitore_prefe,
+pf.PrdForCod AS codice_Art_fornitore_pref,
+
+-- date
+CONVERT(varchar, a.DataUltVendita, 103) AS dataUltVendita,
+CONVERT(varchar, a.DataUltAcquisto, 103) AS dataUltAcq,
+CONVERT(varchar, a.DataPrimAcquisto, 103) AS dataPrimAcq,
+CONVERT(varchar, a.DataUltMovimentazione, 103) AS ultMovimentazione,
+
+
+-- ultimo ACQUISTO reale (solo ACQ)
+acq.CodFornitoreUltAcq,
+acq.RagSocUltAcq,
+acq.PrezzoUltAcq,
+acq.CodArticoloUltimoAcquisto AS cod_articolo_ultimo_acquisto,
+
+-- >>> NUMERO VENDITE 01/01/2024 - OGGI <<<
+vnd.NumVenditeDoc_2024_oggi,
+
+--giacenze
+giac.Giac_Savigliano,
+giac.Giac_Saluzzo,
+giac.Giac_Totale_Selezionati,
+
+
+--PREZZO LISTINO BASE
+prz.PrdPrz AS prezzo_listino_base,
+barcode.Barcodes as barcode
+FROM AggDates AS a
+INNER JOIN PrdAna AS p
+ON p.PrdCod = a.Codice_Articolo
+
+-- Categoria merceologica: scegli UNA riga (evita duplicati)
+OUTER APPLY (
+SELECT TOP 1 mt.ItemDes AS DescCatMerc
+FROM MixTab AS mt
+WHERE mt.ItemID = p.GrpCod
+ORDER BY mt.ItemDes
+) AS cat
+
+-- Fornitore preferenziale del prodotto: scegli UNA riga (ItemDefault=1)
+OUTER APPLY (
+SELECT TOP 1 pf1.ForCod, pf1.PrdForCod
+FROM PrdFor AS pf1
+WHERE pf1.PrdCod = p.PrdCod
+AND pf1.ItemDefault = 1
+ORDER BY pf1.ForCod, pf1.PrdForCod
+) AS pf
+
+LEFT JOIN MixAna AS anagPref
+ON anagPref.ItemType = 2
+AND anagPref.ItemID = pf.ForCod
+
+-- Ultimo ACQUISTO (solo ACQ)
+OUTER APPLY (
+SELECT TOP 1
+t.AnaCod AS CodFornitoreUltAcq,
+anag.ItemDes AS RagSocUltAcq,
+l.MovPrz AS PrezzoUltAcq,
+l.PrdForCod AS CodArticoloUltimoAcquisto
+FROM magMov AS t
+INNER JOIN magMovLin AS l
+ON l.UniqMov = t.Uniq
+AND l.PrdCod = a.Codice_Articolo
+LEFT JOIN MixAna AS anag
+ON anag.ItemType = 2
+AND anag.ItemID = t.AnaCod
+WHERE l.MovCau = 'ACQ'
+ORDER BY t.DocDta DESC, l.UniqMov DESC
+) AS acq
+
+-- Conteggio vendite dal 01/01/2024 a oggi (per articolo)
+OUTER APPLY (
+SELECT
+COUNT(DISTINCT t.Uniq) AS NumVenditeDoc_2024_oggi -- n. documenti di vendita
+FROM magMov AS t
+INNER JOIN magMovLin AS l2
+ON l2.UniqMov = t.Uniq
+WHERE l2.MovCau = 'VND'
+AND l2.PrdCod = a.Codice_Articolo
+AND t.DocDta >= '2024-01-01'
+AND t.DocDta < DATEADD(DAY, 1, CAST(GETDATE() AS date)) -- oggi incluso
+) AS vnd
+OUTER APPLY (
+SELECT
+SUM(CASE WHEN lin.MagCod = 'LOCALE'
+THEN ISNULL(lin.Carichi,0) - ISNULL(lin.Scarichi,0) ELSE 0 END) AS Giac_Savigliano,
+SUM(CASE WHEN lin.MagCod = 'SALUZZO'
+THEN ISNULL(lin.Carichi,0) - ISNULL(lin.Scarichi,0) ELSE 0 END) AS Giac_Saluzzo,
+SUM(ISNULL(lin.Carichi,0) - ISNULL(lin.Scarichi,0)) AS Giac_Totale_Selezionati
+FROM dbo.MagMovLin AS lin
+JOIN dbo.MagMov AS mov ON mov.Uniq = lin.UniqMov
+WHERE lin.PrdCod = a.Codice_Articolo
+AND mov.MovDta <= CAST(GETDATE() AS date) -- data di riferimento: oggi (come @tMovDta nella SP)
+) AS giac
+OUTER APPLY (
+SELECT prd.PrdPrz
+from PrdPrz prd
+where
+prd.PrdCod = a.Codice_Articolo
+and lstCod = 'BASE'
+) AS prz
+
+OUTER APPLY (
+SELECT
+STRING_AGG(CAST(mix.AliasID AS varchar(100)), '~') AS Barcodes
+FROM mixAnaAlias AS mix
+WHERE mix.ItemID = a.Codice_Articolo
+) AS barcode
+
+--WHERE a.Codice_Articolo = 'COEKIS160G' -- opzionale
+ORDER BY COALESCE(a.DataUltVendita, a.DataUltAcquisto) DESC, a.Codice_Articolo;

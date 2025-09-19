@@ -1,0 +1,2677 @@
+/*
+*
+*
+*
+*/
+CREATE PROCEDURE [uspFepaDoc_build]
+	@iSession int,
+	@iDocUniq int
+AS
+SET NOCOUNT ON
+Declare @iUserID smallint = dbo.[udfSysUserID](@iSession)
+
+-- opzioni di compilazione
+Declare @sRifAmministrazione varchar(32)
+Declare @bBolloImporto bit
+Declare @bCompilaVettore bit
+Declare @bCompilaREA bit
+Declare @sUfficioREA varchar(8)
+Declare @sNumeroREA varchar(32)
+Declare @dCapitaleSociale decimal(19, 2)
+Declare @bSocioUnico bit
+Declare @bStatoLiquidazione bit
+Declare @bCompilaContatti bit
+Declare @sTelefono varchar(16)
+Declare @sFax varchar(16)
+Declare @sEmail varchar(64)
+
+Declare @iBuildPrdCodRule tinyint
+Declare @iBuildPrdPrzRule tinyint
+Declare @sBuildPrdCodDocRif varchar(32)
+Declare @sBuildPrdTipExclude varchar(8)
+
+Declare @sDocDefTD02 varchar(16)
+Declare @sDocDefTD05 varchar(16)
+Declare @sDocDefTD25 varchar(16)
+Declare @sDocDefTD26 varchar(16)
+Declare @sDocDefTD27 varchar(16)
+
+-- estremi documento, fornitura
+Declare @iDOC_DocKind tinyint
+Declare @iDOC_DocTip tinyint
+Declare @sDOC_DocNum varchar(32)
+Declare @sDOC_DocNumPrefix varchar(8)
+Declare @sDOC_DocNumSuffix varchar(8)
+Declare @sDOC_DocNumPrefixPlusSuffix varchar(16)
+Declare @tDOC_DocDta date
+Declare @iDOC_AnaType tinyint = 1
+Declare @sDOC_AnaCod varchar(16)
+Declare @sDOC_PagCod varchar(16)
+Declare @tDOC_PagStart date
+Declare @sDOC_VetCod varchar(16)
+Declare @sDOC_CntRegMod varchar(8)
+Declare @iDOC_Fornitura int
+Declare @sDOC_Causale varchar(1024)
+
+-- per autofatture TD16 TD17 TD18 TD19 TD20
+-- DocKind 116 117 118 119 120
+Declare @sDOC_NsRif varchar(64) 	-- Codice fornitore
+
+Declare @dDOC_DocImp decimal(19, 2)
+Declare @dDOC_DocIva decimal(19, 2)
+Declare @dDOC_DocTot decimal(19, 2)
+
+Declare @dDOC_DocSconti decimal(19, 2)
+Declare @dDOC_SpImballo decimal(9, 2)
+Declare @dDOC_SpTra decimal(9, 2)
+Declare @dDOC_SpRiba decimal(9, 2)
+Declare @dDOC_SpBolli decimal(9, 2)
+Declare @dDOC_SpVarie decimal(9, 2)
+
+Declare @iSupply_default int
+Declare @sSupply_FepaDest varchar(8)
+Declare @sSupply_CIG varchar(16)
+Declare @sSupply_CUP varchar(16)
+Declare @sSupply_BuyOrder varchar(32)
+Declare @tSupply_BuyOrderDate date
+Declare @sSupply_Contract varchar(32)
+Declare @sSupply_Convention varchar(32)
+Declare @sSupply_Reception varchar(32)
+Declare @iSupply_FaseSAL smallint
+Declare @sSupply_RifAmm varchar(32)
+
+-- dati trasmittente
+Declare @sTRT_Naz varchar(8) = 'IT'
+Declare @sTRT_Codice varchar(16) = ''
+
+-- dati cedente/azienda e trasmittente
+Declare @sAZI_ItemDes nvarchar(256)
+Declare @sAZI_Ind nvarchar(256)
+Declare @sAZI_Cap varchar(16)
+Declare @sAZI_Loc nvarchar(128)
+Declare @sAZI_Pro varchar(16)
+Declare @sAZI_Naz varchar(8) = 'IT'
+Declare @sAZI_PIva varchar(16)
+Declare @sAZI_CFis varchar(16)
+Declare @sAZI_Eori varchar(32)
+Declare @sAZI_RFisc varchar(32) = dbo.[udfEnvironRead]('0062')
+Declare @sAZI_RafTaxID1 varchar(8)
+Declare @sAZI_RafTaxID2 varchar(8)
+Declare @sAZI_RafTaxID3 varchar(8)
+
+Declare @sAZI_Country varchar(8) = 'IT'
+Declare @bAZI_Cee bit
+Declare @sAZI_FepaType varchar(8) = 'FE'
+Declare @sAZI_FepaEsgIva varchar(8) = 'I'
+Declare @sAZI_FepaDest varchar(8) = 'KGVVJ2H'
+Declare @sAZI_FepaPEC varchar(256) = ''
+Declare @bAZI_IsForAna bit = 0
+
+-- dati committente/cliente
+Declare @sANA_NomNoEntities varchar(40)
+Declare @sANA_ItemDes nvarchar(256)
+Declare @sANA_Ind nvarchar(256)
+Declare @sANA_Cap varchar(16)
+Declare @sANA_Loc nvarchar(128)
+Declare @sANA_Pro varchar(16)
+Declare @sANA_Naz varchar(32)
+Declare @sANA_PIva varchar(16)
+Declare @sANA_CFis varchar(16)
+Declare @sANA_Country varchar(8)
+
+Declare @bANA_Cee bit
+Declare @bANA_PFisica bit
+Declare @sANA_Surname varchar(32)
+Declare @sANA_Name varchar(32)
+
+Declare @sANA_FepaType varchar(8)
+Declare @sANA_FepaEsgIva varchar(8)
+Declare @sANA_FepaDest varchar(8)
+Declare @sANA_FepaPEC varchar(256)
+Declare @sANA_FepaEori varchar(32)
+
+-- dati pagamento
+Declare @sPAY_BanCod varchar(16)
+Declare @sPAY_BanIBAN varchar(64)
+Declare @sPAY_BanABI varchar(8)
+Declare @sPAY_BanCAB varchar(8)
+Declare @sPAY_BanBIC varchar(32)
+
+-- codici AE
+Declare @sDOC_DocTipAE varchar(8)
+Declare @sPAY_T_AE varchar(8)
+Declare @sPAY_M_AE varchar(8)
+Declare @sIVA_T_AE varchar(8)
+
+-- Natura N2.2 – operazione non soggetta IVA, fuori campo, da non indicare in dichiarazione IVA.
+Declare @sIVA_T_AE_FC varchar(8) = 'N2.2'
+
+-- IVA
+Declare @dValue decimal(9, 2)
+Declare @iDocElm tinyint
+Declare @sIvaCod varchar(8)
+Declare @dIvaAlq decimal(9, 2)
+Declare @iIvaType tinyint
+Declare @sIvaCod_TOP varchar(8)
+Declare @dIvaAlq_TOP decimal(19, 2)
+
+-- RAF
+Declare @sRafTipo varchar(8)
+Declare @sRafCau varchar(8)
+-- ritenute alla fonte
+Declare @sRafTaxID_F varchar(8)
+Declare @dRafValue_F decimal(19, 2)
+Declare @dRafPc_F decimal(9, 2)
+Declare @dRafBasePc_F decimal(9, 2)
+-- ritenute enasarco
+Declare @sRafTaxID_E varchar(8)
+Declare @dRafValue_E decimal(19, 2)
+Declare @dRafPc_E decimal(9, 2)
+Declare @dRafBasePc_E decimal(9, 2)
+Declare @iRafYear_E smallint
+Declare @sRafRif_E varchar(60)
+
+-- Split Payement/Bonus
+Declare @iPagTabIva tinyint = 0
+Declare @dPagTabBonus decimal(9, 2) = 0
+Declare @dBonusValue decimal(19, 2) = 0
+
+-- file XML
+Declare @sDocFileFormat varchar(8) = ''
+Declare @sDocFileNumber varchar(8) = ''
+Declare @sDocFileName varchar(128) = ''
+Declare @sDocFileXML nvarchar(MAX) = ''
+--Declare @xXML XML
+
+-- count
+Declare @iCount int = 0
+Declare @iCountDDT int = 0
+Declare @iCountIVA int = 0
+Declare @iCountPAY int = 0
+Declare @iCountLIN int = 0
+
+-- support
+Declare @sError nvarchar(2048) = ''
+Declare @sCrLf char(2) = char(13) + char(10)
+Declare @tDate date = GetDate()
+Declare @tDateTime smalldatetime = GetDate()
+
+-- tabelle di supporto
+Declare @tbDDT TABLE(
+	  [DdtNum] varchar(32) NULL
+	, [DdtDta] date NULL
+	, [DdtUniq] int NULL
+	, [DdtID] int IDENTITY(1, 1)
+	)
+
+Declare @tbIVA TABLE(
+	  [IvaBase] decimal(19, 2) NULL
+	, [IvaBaseAC] decimal(19, 2) NULL -- spese accessorie
+	, [IvaCod] varchar(8) NULL
+	, [IvaDes] varchar(64) NULL
+	, [IvaAlq] decimal(9, 2) NULL
+	, [IvaValue] decimal(19, 2) NULL
+	, [IvaID] int IDENTITY(1, 1)
+	)
+
+Declare @tbPAY TABLE(
+	  [PayNumber] tinyint NULL
+	, [PayType] tinyint NULL
+	, [PayDate] date NULL
+	, [PayValue] decimal(9, 2) NULL
+	)
+
+CREATE TABLE [#TAGs](
+	  [TagText] nvarchar(MAX) NULL
+	, [TagRowID] int IDENTITY
+	)
+CREATE UNIQUE INDEX UIX On [#TAGs](TagRowID)
+
+-- =============================================================
+-- eliminazione eventuale record già presente
+--
+Delete dbo.[FepaDoc]
+Where DocUniq = @iDocUniq
+
+-- =============================================================
+-- opzioni di compilazione
+--
+Select TOP 1
+	  @sRifAmministrazione = RifAmministrazione
+	, @bBolloImporto = BolloImporto
+	, @bCompilaVettore = CompilaVettore
+	, @bCompilaREA = CompilaREA
+	, @sUfficioREA = UfficioREA
+	, @sNumeroREA = NumeroREA
+	, @dCapitaleSociale = CapitaleSociale
+	, @bSocioUnico = SocioUnico
+	, @bStatoLiquidazione = StatoLiquidazione
+	, @bCompilaContatti = CompilaContatti
+	, @sTelefono = Telefono
+	, @sFax = Fax
+	, @sEmail = Email
+	, @iBuildPrdCodRule = BuildPrdCodRule
+	, @iBuildPrdPrzRule = BuildPrdPrzRule
+	, @sBuildPrdCodDocRif = BuildPrdCodDocRif
+	, @sBuildPrdTipExclude = BuildPrdTipExclude
+	, @sDocDefTD02 = DocDefTD02
+	, @sDocDefTD05 = DocDefTD05
+	, @sDocDefTD25 = DocDefTD25
+	, @sDocDefTD26 = DocDefTD26
+	, @sDocDefTD27 = DocDefTD27
+From dbo.[FepaDocBuildOptions]
+
+Set @iBuildPrdCodRule = IsNull(@iBuildPrdCodRule, 0)
+Set @iBuildPrdPrzRule = IsNull(@iBuildPrdPrzRule, 0)
+Set @sBuildPrdCodDocRif = IsNull(@sBuildPrdCodDocRif, '')
+Set @sBuildPrdTipExclude = IsNull(@sBuildPrdTipExclude, '')
+Set @sDocDefTD02 = IsNull(@sDocDefTD02, '')
+Set @sDocDefTD05 = IsNull(@sDocDefTD05, '')
+Set @sDocDefTD25 = IsNull(@sDocDefTD25, '')
+Set @sDocDefTD26 = IsNull(@sDocDefTD26, '')
+Set @sDocDefTD27 = IsNull(@sDocDefTD27, '')
+
+If @sBuildPrdTipExclude = ''
+	Set @sBuildPrdTipExclude = '-!§'
+-- =============================================================
+-- dati aziendali, cedente
+--
+Select
+	  @sAZI_ItemDes = ItemDes
+	, @sAZI_Ind = Ind
+	, @sAZI_Cap = Cap
+	, @sAZI_Loc = Loc
+	, @sAZI_Pro = Pro
+	, @sAZI_PIva = PIva
+	, @sAZI_CFis = CFis
+	, @sAZI_Eori = FepaEori
+	, @sAZI_RafTaxID1 = RafTaxID1
+	, @sAZI_RafTaxID2 = RafTaxID2
+	, @sAZI_RafTaxID3 = RafTaxID3
+From dbo.[MixAna]
+Where ItemType = 50
+
+-- ---------------------------------------------------------------------
+-- estremi documento, fornitura
+--
+Select
+	  @iDOC_DocKind = DOC.DocKind
+	, @iDOC_DocTip = DOC.DocTip
+	, @sDOC_DocNum = DOC.DocNum
+	, @tDOC_DocDta = DOC.DocDta
+	, @sDOC_AnaCod = DOC.AnaCod
+	, @sDOC_PagCod = DOC.PagCod
+	, @tDOC_PagStart = DOC.PagStart
+	, @sDOC_VetCod = DOC.VetCod
+	, @sDOC_CntRegMod = DOC.CntRegMod
+	, @iDOC_Fornitura = DOC.Fornitura
+
+	, @sDOC_NsRif = DOC.NsRif			-- Codice fornitore
+
+	, @dDOC_DocImp = DOC.DocImp
+	, @dDOC_DocIva = DOC.DocIva
+	, @dDOC_DocTot = DOC.DocTot
+
+	, @dDOC_DocSconti = DOC.DocSconti
+	, @dDOC_SpImballo = DOC.SpImballo
+	, @dDOC_SpTra = DOC.SpTra
+	, @dDOC_SpRiba = DOC.SpRiba
+	, @dDOC_SpBolli = DOC.SpBolli
+	, @dDOC_SpVarie = DOC.SpVarie
+
+	, @sSupply_FepaDest = SUP.FepaDest
+	, @sSupply_CIG = SUP.ItemCIG
+	, @sSupply_CUP = SUP.ItemCUP
+	, @sSupply_BuyOrder = SUP.BuyOrder
+	, @tSupply_BuyOrderDate = SUP.BuyOrderDate
+	, @sSupply_Contract = SUP.Contract
+	, @sSupply_Convention = SUP.Convention
+	, @sSupply_Reception = SUP.Reception
+	, @iSupply_FaseSAL = SUP.FaseSAL
+	, @sSupply_RifAmm = SUP.ItemRif1
+From dbo.[CliDoc] DOC
+Left Join dbo.[SupplyAna] SUP On SUP.ItemID = DOC.Fornitura
+Where DOC.Uniq = @iDocUniq
+
+-- Fattorie Piemonte - Inizio PERS
+Declare @sDsmCod varchar(16) = ''
+Declare @sPVCod varchar(64) = ''
+Declare @iTrMezzo tinyint
+
+Select
+	@sDsmCod = DsmCod,
+	@iTrMezzo = TrMezzo -- Pers M2 Sistemi
+From
+	dbo.[CliDoc] DOC
+Where
+	DOC.Uniq = @iDocUniq
+
+Set @sDsmCod = RTrim(LTrim(IsNull(@sDsmCod, '')))
+
+If @sDOC_AnaCod = '00704' -- Esselunga
+Begin
+	If Len(@sDsmCod) > 0
+	Begin
+		Select
+			@sPVCod = www
+		From
+			dbo.[MixAnaSedi]
+		Where
+			ItemType = 1
+			And ItemID = @sDOC_AnaCod -- '00704'
+			And ItemIDSede = @sDsmCod
+
+		Set @sPVCod = RTrim(Left(RTrim(LTrim(IsNull(@sPVCod, ''))), 60))
+	End
+End
+
+-- Fattorie Piemonte - Fine PERS
+
+-- ----------------------------------------------------------
+Set @sDOC_DocNumPrefix = dbo.[udfDocNum_split](1, @sDOC_DocNum)
+Set @sDOC_DocNumSuffix = dbo.[udfDocNum_split](2, @sDOC_DocNum)
+
+Set @sDOC_DocNumPrefix = IsNull(@sDOC_DocNumPrefix, '')
+Set @sDOC_DocNumSuffix = IsNull(@sDOC_DocNumSuffix, '')
+Set @sDOC_DocNumPrefixPlusSuffix = @sDOC_DocNumPrefix + '+' + @sDOC_DocNumSuffix
+Set @iDOC_DocKind = IsNull(@iDOC_DocKind, 0)
+Set @sDOC_Causale = dbo.[udfRpt_DocCntInfo](15,	@iDocUniq)
+
+-- Fattorie Piemonte - Inizio PERS
+If @sDOC_AnaCod = '00564' -- E2 SRL
+Begin
+	If Len(@sDsmCod) = 0
+		Set @sDOC_Causale = '089442'
+	Else If @sDsmCod = '1'
+		Set @sDOC_Causale = '098916'
+End
+If @sDOC_AnaCod = '00828' -- DONAC SRL
+Begin
+	If @sDsmCod = '1'
+		Set @sDOC_Causale = '100270'
+	If Len(RTrim(LTrim(IsNull(@sDsmCod, '')))) = 0
+		Set @sDOC_Causale = '100213'
+End
+If @sDOC_AnaCod = '00866' -- GABRIELIS SRL
+Begin
+	If Len(RTrim(LTrim(IsNull(@sDsmCod, '')))) = 0
+		Set @sDOC_Causale = '097133'
+	Else If @sDsmCod = '1'
+		Set @sDOC_Causale = '099590'
+End
+If @sDOC_AnaCod = '00889' -- ALBA STORE SRL
+Begin
+	If Len(RTrim(LTrim(IsNull(@sDsmCod, '')))) = 0
+		Set @sDOC_Causale = '097025'
+End
+If @sDOC_AnaCod = '00919' -- MAROTTA SRL
+Begin
+	If Len(RTrim(LTrim(IsNull(@sDsmCod, '')))) = 0
+		Set @sDOC_Causale = '102327'
+	Else If @sDsmCod = '1'
+		Set @sDOC_Causale = '102370'
+End
+If @sDOC_AnaCod = '00743' -- BOREALE SRL
+Begin
+	If Len(RTrim(LTrim(IsNull(@sDsmCod, '')))) = 0
+		Set @sDOC_Causale = '102721'
+	Else If @sDsmCod = '1'
+		Set @sDOC_Causale = '102721'
+End
+-- Fattorie Piemonte - Fine PERS
+
+Set @sDOC_Causale = Left(IsNull(@sDOC_Causale, ''), 200)
+-- ----------------------------------------------------------
+Set @iDOC_Fornitura = IsNull(@iDOC_Fornitura, 0)
+If @iDOC_Fornitura = 0
+Begin
+	-- eventuale fornitura predefinita
+	--
+	Set @iSupply_default = 0
+	Select TOP 1 @iSupply_default = ItemID
+	From dbo.[SupplyAna]
+	Where (AnaCod = @sDOC_AnaCod)
+		And (AnaType = 1)
+		And (IsNull(ItemKind, 0) = 5)
+	Order By ItemID DESC
+
+	Set @iSupply_default = IsNull(@iSupply_default, 0)
+	If @iSupply_default > 0
+	Begin
+		Set @iDOC_Fornitura = @iSupply_default
+		Set @sSupply_FepaDest = ''
+		Set @sSupply_CIG = ''
+		Set @sSupply_CUP = ''
+		Set @sSupply_BuyOrder = ''
+		Set @tSupply_BuyOrderDate = ''
+		Set @sSupply_Contract = ''
+		Set @sSupply_Convention = ''
+		Set @sSupply_Reception = ''
+
+		Select
+			  @sSupply_FepaDest = SUP.FepaDest
+			, @sSupply_CIG = SUP.ItemCIG
+			, @sSupply_CUP = SUP.ItemCUP
+			, @sSupply_BuyOrder = SUP.BuyOrder
+			, @tSupply_BuyOrderDate = SUP.BuyOrderDate
+			, @sSupply_Contract = SUP.Contract
+			, @sSupply_Convention = SUP.Convention
+			, @sSupply_Reception = SUP.Reception
+			, @iSupply_FaseSAL = SUP.FaseSAL
+		From dbo.[SupplyAna] SUP
+		Where SUP.ItemID = @iSupply_default
+	End -- @iSupply_default <> 0
+End -- @iDOC_Fornitura = 0
+
+--
+-- ---------------------------------------------------------------------
+-- dati committente/cliente
+--
+Select
+	  @sANA_NomNoEntities = RTrim(Left(ANA.ItemDes, 40))
+	, @sANA_ItemDes = ANA.ItemDes
+	, @sANA_Ind = ANA.Ind
+	, @sANA_Cap = ANA.Cap
+	, @sANA_Loc = ANA.Loc
+	, @sANA_Pro = ANA.Pro
+	, @sANA_Naz = ANA.Naz
+	, @sANA_PIva = ANA.PIva
+	, @sANA_CFis = ANA.CFis
+	, @bANA_PFisica = ANA.PFisica
+
+	, @sANA_FepaType = ANA.FepaType
+	, @sANA_FepaEsgIva = ANA.FepaEsgIva
+	, @sANA_FepaDest = ANA.FepaDest
+	, @sANA_FepaPEC = ANA.FepaPEC
+	, @sANA_FepaEori = ANA.FepaEori
+
+	, @sPAY_BanCod = ANA.BanCod
+	, @sANA_Country = GEO.ItemCode
+	, @bANA_Cee = GEO.Cee
+From dbo.[MixAna] ANA
+Left Join dbo.[GeoCountry] GEO On GEO.ItemName = ANA.Naz
+Where (ANA.ItemID = @sDOC_AnaCod)
+	And (ANA.ItemType = 1)
+
+-- ---------------------------------------------------------------------
+-- split payment/Bonus
+Select
+	  @iPagTabIva = Iva
+	, @dPagTabBonus = Bonus
+From dbo.[PagTab]
+Where ItemID = @sDOC_PagCod
+
+Set @iPagTabIva = IsNull(@iPagTabIva, 0)
+
+-- ---------------------------------------------------------------------
+-- eventuale codice destinatario da fornitura
+--
+Set @sSupply_FepaDest = IsNull(@sSupply_FepaDest, '')
+If @sSupply_FepaDest <> ''
+	Set @sANA_FepaDest = @sSupply_FepaDest
+
+-- ---------------------------------------------------------------------
+-- banca pagamento
+--
+If @tDOC_PagStart IS NULL
+	Set @tDOC_PagStart = @tDOC_DocDta
+
+Set @sPAY_BanCod = IsNull(@sPAY_BanCod, '')
+If @sPAY_BanCod = ''
+Begin
+	Select @sPAY_BanCod = BanCodBB
+	From dbo.[PagTab]
+	Where ItemID = @sDOC_PagCod
+End
+
+Set @sPAY_BanCod = IsNull(@sPAY_BanCod, '')
+If @sPAY_BanCod = ''
+Begin
+	Select @sPAY_BanCod = ItemID
+	From dbo.[MixAna]
+	Where ItemType = 3
+		And IsNull(ItemUse, 0) = 20
+End
+
+Set @sPAY_BanCod = IsNull(@sPAY_BanCod, '')
+If @sPAY_BanCod <> ''
+Begin
+	Select
+		  @sPAY_BanIBAN = BanIBAN
+		, @sPAY_BanABI = BanABI
+		, @sPAY_BanCAB = BanCAB
+		, @sPAY_BanBIC = BanBIC
+	From dbo.[MixAna]
+	Where ItemID = @sPAY_BanCod
+		And ItemType = 3
+End
+
+-- ---------------------------------------------------------------------
+-- dati file
+--
+Set @sAZI_PIva = IsNull(@sAZI_PIva, '')
+Set @sAZI_CFis = IsNull(@sAZI_CFis, '')
+
+If Left(@sAZI_PIva, 2) = 'IT'
+	Set @sAZI_PIva = Right(@sAZI_PIva, 11)
+
+If @sAZI_CFis = ''
+	Set @sAZI_CFis = @sAZI_PIva
+
+Set @sTRT_Codice = Case When (@sAZI_CFis <> '') Then @sAZI_CFis Else @sAZI_PIva End
+
+Set @sDocFileNumber = ''
+Execute dbo.[uspFepaFileNext_out] @sDocFileNumber OUTPUT
+Set @sDocFileName = IsNull(@sTRT_Naz, '') + IsNull(@sAZI_PIva, '') + '_' + @sDocFileNumber + '.xml'
+
+-- ---------------------------------------------------------------------
+-- Numero di righe di dettaglio
+--
+Select @iCountLIN = Count(LIN.Uniq)
+From dbo.[CliDocLin] LIN
+Left Join dbo.[PrdAna] PRD On PRD.PrdCod = LIN.PrdCod
+Where (LIN.UniqDoc = @iDocUniq)
+	And (IsNull(PRD.PrdTip, '') <> @sBuildPrdTipExclude)
+
+Set @iCountLIN = IsNull(@iCountLIN, 0)
+
+-- ---------------------------------------------------------------------
+-- dettaglio DDT
+--
+If @iCountLIN > 0
+Begin
+	Insert @tbDDT(
+		  DdtNum
+		, DdtDta
+		, DdtUniq
+		)
+	Select
+		  Max(DDT.DocNum) As DdtNum
+		, Max(DDT.DocDta) As DdtDta
+		, LIN.UniqFrom
+	From dbo.[CliDocLin] LIN
+	Left Join dbo.[CliDoc] DDT On DDT.Uniq = LIN.UniqFrom And DDT.DocTip = 14
+	Where LIN.UniqDoc = @iDocUniq
+		And IsNull(LIN.DocTipFrom, 0) = 14
+	Group By LIN.UniqFrom
+	Order By LIN.UniqFrom
+
+	Select @iCountDDT = Count(DdtUniq)
+	From @tbDDT
+End -- @iCountLIN > 0
+
+Set @iCountDDT = IsNull(@iCountDDT, 0)
+
+-- ---------------------------------------------------------------------
+-- Ritenute alla fonte/enasarco
+--
+-- ritenute alla fonte
+Set @sRafTaxID_F = ''
+Set @dRafValue_F = 0
+Set @dRafPc_F = 0
+Set @dRafBasePc_F = 0
+Select TOP 1
+	  @sRafTaxID_F = RafTaxID
+	, @dRafValue_F = RafValue
+	, @dRafPc_F = RafPc
+	, @dRafBasePc_F = RafBasePc
+From dbo.[DocRaf]
+Where (DocTip = @iDOC_DocTip)
+	And (UniqDoc = @iDocUniq)
+	And (RafTaxID NOT Like 'ENAS%')
+
+-- ritenuta enasarco
+Set @sRafTaxID_E = ''
+Set @dRafValue_E = 0
+Set @dRafPc_E = 0
+Set @dRafBasePc_E = 0
+Select TOP 1
+	  @sRafTaxID_E = RafTaxID
+	, @dRafValue_E = RafValue
+	, @dRafPc_E = RafPc
+	, @dRafBasePc_E = RafBasePc
+	, @iRafYear_E = RafYear
+From dbo.[DocRaf]
+Where (DocTip = @iDOC_DocTip)
+	And (UniqDoc = @iDocUniq)
+	And (RafTaxID Like 'ENAS%')
+
+Set @dRafValue_F = IsNull(@dRafValue_F, 0)
+Set @dRafValue_E = IsNull(@dRafValue_E, 0)
+Set @dRafPc_E = IsNull(@dRafPc_E, 0)
+Set @dRafBasePc_E = IsNull(@dRafBasePc_E, 0)
+Set @sRafRif_E = 'Anno ' + Cast(IsNull(@iRafYear_E, 0) As varchar(8)) + ' Euro ' + dbo.[udfFepa_XML_value](@dRafValue_E, 0, 0)
+	+ ' pari a ' + dbo.[udfFepa_XML_value](@dRafPc_E, 0, 0) + '% su ' + dbo.[udfFepa_XML_value](@dRafBasePc_E, 0, 0) + '% imponibile'
+
+-- ---------------------------------------------------------------------
+-- dettaglio IVA
+--
+Insert @tbIVA(
+	  IvaBase
+	, IvaCod
+	, IvaDes
+	, IvaAlq
+	, IvaValue
+	)
+Select
+	  LIN.DocImp
+	, LIN.IvaCod
+	, dbo.[udfIvaCod_DES](LIN.IvaCod)
+	, LIN.IvaAlq
+	, LIN.DocIva
+From dbo.[CntReg] REG
+Left Join dbo.[CntRegLin] LIN On LIN.UniqMov = REG.Uniq
+Where (REG.MovDocTip = @iDOC_DocTip)
+	And (REG.MovDocNum = @sDOC_DocNum)
+	And (REG.MovDocDta = @tDOC_DocDta)
+	And (REG.AnaCod = @sDOC_AnaCod)
+	And (IsNull(LIN.IvaCod, '') <> '')
+Order By LIN.IvaCod
+
+If @iCountLIN > 0
+Begin
+	If EXISTS(
+		Select LIN.Uniq
+		From dbo.[CliDocLin] LIN
+		Where (LIN.UniqDoc = @iDocUniq)
+			And (IsNull(LIN.IvaCod, '') = '')
+		)
+	Begin
+		Insert @tbIVA(IvaBase, IvaCod, IvaDes, IvaAlq, IvaValue)
+		Values(0, '', '', 0, 0)
+	End
+End -- @iCountLIN > 0
+
+--select * from @tbIVA
+--RETURN
+
+Select @iCountIVA = Count(IvaID)
+From @tbIVA
+
+Set @iCountIVA = IsNull(@iCountIVA, 0)
+If @iCountIVA <> 0
+Begin
+	--
+	-- ricava codice e aliquota IVA più alta
+	--
+	Select TOP 1
+		  @sIvaCod_TOP = IvaCod
+		, @dIvaAlq_TOP = IvaAlq
+	From @tbIVA
+	Where IsNull(IvaCod, '') <> ''
+	Order By IvaAlq DESC
+End
+
+-- ---------------------------------------------------------------------
+-- dettaglio SCADENZE
+--
+Insert @tbPAY(
+	  PayNumber
+	, PayType
+	, PayDate
+	, PayValue
+	)
+Select
+	Row_number() OVER(Order By ItemDate) As PayNumber
+	, ItemType As PayType
+	, ItemDate As PayDate
+	, Attivo As PayValue
+From dbo.[CntPay]
+Where (DocTip = @iDOC_DocTip)
+	And (DocNum = @sDOC_DocNum)
+	And (DocDta = @tDOC_DocDta)
+	And (AnaType = @iDOC_AnaType)
+	And (AnaCod = @sDOC_AnaCod)
+Order By ItemDate
+
+-- determinate da numero di scadenze
+--
+Select @iCountPAY = Count(PayNumber)
+From @tbPAY
+
+Set @iCountPAY = IsNull(@iCountPAY, 0)
+--[TP01]: pagamento a rate
+--[TP02]: pagamento completo
+--[TP03]: anticipo
+Set @sPAY_T_AE = Case When @iCountPAY > 1 Then 'TP01' Else 'TP02' End
+If @iCountPAY > 0
+Begin
+	Declare @iPagItemType tinyint = 0
+
+	Select @iPagItemType = ItemType
+	From dbo.[PagTab]
+	Where ItemID = @sDOC_PagCod
+
+	-- se @iPagItemType = 9
+	-- PAGATO: non viene compilata la sezione <DatiPagamento>
+	If IsNull(@iPagItemType, 0) = 9
+		Set @iCountPAY = 0
+End
+
+-- =============================================================
+-- TIPO DOCUMENTO
+--
+Set @sDOC_DocTipAE = ''
+
+If @iDOC_DocTip = 16
+	Set @sDOC_DocTipAE = 'TD04'
+Else
+Begin -- @iDOC_DocTip = 15
+	Set @sDOC_DocTipAE = Case
+		When @sDOC_DocNumPrefixPlusSuffix = @sDocDefTD02 Then 'TD02'
+		When @sDOC_DocNumPrefixPlusSuffix = @sDocDefTD05 Then 'TD05'
+		When @sDOC_DocNumPrefixPlusSuffix = @sDocDefTD25 Then 'TD25'
+		When @sDOC_DocNumPrefixPlusSuffix = @sDocDefTD26 Then 'TD26'
+		When @sDOC_DocNumPrefixPlusSuffix = @sDocDefTD27 Then 'TD27'
+		Else ''
+		End
+
+	If (@sDOC_DocTipAE = '') And (@iDOC_DocKind Between 110 And 127)
+	Begin
+		-- Autofatture basate su @iDOC_DocKind
+		-- 110: autofattura generica azienda-azienda
+		-- 116-117-118-119-120: autofattura - fornitore+azienda
+		-- 121-122-123-126-127: autofattura - azienda-azienda
+		Set @sDOC_DocTipAE = 'TD' + Cast(@iDOC_DocKind - 100 As char(2))
+	End
+
+	If @sDOC_DocTipAE = ''
+	Begin
+		Set @sDOC_DocTipAE = 'TD01'
+		If @iCountDDT > 0
+			Set @sDOC_DocTipAE = 'TD24' -- fattura differita da DDT
+	End
+End -- @iDOC_DocTip = 15
+
+-- =============================================================
+If @iDOC_DocKind In(110, 121, 122, 123, 126, 127)
+Begin
+	-- 110: autofattura generica azienda-azienda
+	-- 121-122-123-126-127: autofattura - azienda-azienda
+	-- cessionario = azienda
+	-- committente = azienda
+	Set @sANA_NomNoEntities  = RTrim(Left(@sAZI_ItemDes, 40))
+	Set @sANA_ItemDes = @sAZI_ItemDes
+	Set @sANA_Ind = @sAZI_Ind
+	Set @sANA_Cap = @sAZI_Cap
+	Set @sANA_Loc = @sAZI_Loc
+	Set @sANA_Pro = @sAZI_Pro
+	Set @sANA_Naz = @sAZI_Naz
+	Set @sANA_PIva = @sAZI_PIva
+	Set @sANA_CFis = @sAZI_CFis
+	Set @sANA_Country = 'IT'
+
+	Set @bANA_Cee = 1
+	Set @bANA_PFisica = 0
+	Set @sANA_Surname = ''
+	Set @sANA_Name = ''
+
+	Set @sANA_FepaType = @sAZI_FepaType
+	Set @sANA_FepaEsgIva = @sAZI_FepaEsgIva
+	Set @sANA_FepaDest = @sAZI_FepaDest
+	Set @sANA_FepaPEC = @sAZI_FepaPEC
+	Set @sANA_FepaEori = @sAZI_Eori
+End	-- @iDOC_DocKind In(110, 121, 122, 123, 126, 127)
+
+If (@iDOC_DocKind In(116, 117, 118, 119, 120)) And (IsNull(@sDOC_NsRif, '') <> '')
+Begin
+	-- 116-117-118-119-120: autofattura - fornitore + azienda
+	Set @bAZI_IsForAna = 1
+
+	-- committente = azienda (ANA = AZI)
+	Set @sANA_NomNoEntities  = RTrim(Left(@sAZI_ItemDes, 40))
+	Set @sANA_ItemDes = @sAZI_ItemDes
+	Set @sANA_Ind = @sAZI_Ind
+	Set @sANA_Cap = @sAZI_Cap
+	Set @sANA_Loc = @sAZI_Loc
+	Set @sANA_Pro = @sAZI_Pro
+	Set @sANA_Naz = @sAZI_Naz
+	Set @sANA_PIva = @sAZI_PIva
+	Set @sANA_CFis = @sAZI_CFis
+	Set @sANA_Country = 'IT'
+
+	Set @bANA_Cee = 1
+	Set @bANA_PFisica = 0
+	Set @sANA_Surname = ''
+	Set @sANA_Name = ''
+
+	Set @sANA_FepaType = @sAZI_FepaType
+	Set @sANA_FepaEsgIva = @sAZI_FepaEsgIva
+	Set @sANA_FepaDest = @sAZI_FepaDest
+	Set @sANA_FepaPEC = @sAZI_FepaPEC
+	Set @sANA_FepaEori = @sAZI_Eori
+
+
+	-- cessionario = fornitore (AZI = FORNITORE)
+	Select
+		  -- @sAZI_NomNoEntities = RTrim(Left(ANA.ItemDes, 40))
+		  @sAZI_ItemDes = ANA.ItemDes
+		, @sAZI_Ind = ANA.Ind
+		, @sAZI_Cap = ANA.Cap
+		, @sAZI_Loc = ANA.Loc
+		, @sAZI_Pro = ANA.Pro
+		, @sAZI_Naz = GEO.ItemCode -- ANA.Naz
+		, @sAZI_PIva = ANA.PIva
+		, @sAZI_CFis = ANA.CFis
+		--, @bAZI_PFisica = ANA.PFisica
+
+		, @sAZI_FepaType = 'FE' 	 --ANA.FepaType
+		, @sAZI_FepaEsgIva = 'I' 	 -- ANA.FepaEsgIva
+		-- , @sAZI_FepaDest = 'XXXXXXX' -- ANA.FepaDest
+		, @sAZI_FepaPEC = '' 		 -- ANA.FepaPEC
+		--, @sAZI_FepaEori = ANA.FepaEori
+
+		--, @sPAY_BanCod = ANA.BanCod
+		, @sAZI_Country = GEO.ItemCode
+		, @bAZI_Cee = GEO.Cee
+	From dbo.[MixAna] ANA
+	Left Join dbo.[GeoCountry] GEO On GEO.ItemName = ANA.Naz
+	Where (ANA.ItemID = @sDOC_NsRif)
+		And (ANA.ItemType = 2)
+
+	-- Set @sANa_FepaDest = Case When IsNull(@sAZI_Country, '') <> 'IT' Then 'XXXXXXX' Else '0000000' End
+	Set @sANA_FepaPEC = ''
+End -- @iDOC_DocKind In(116, 117, 118, 119, 120)
+-- =============================================================
+-- ROOT
+--
+Set @sDocFileFormat = Case
+	When IsNull(@sANA_FepaType, '') = 'PA' Then 'FPA12'
+	Else 'FPR12'
+	End
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<?xml version="1.0" encoding="utf-8"?>')
+Insert [#TAGs](TagText) Values('<p:FatturaElettronica versione="' + @sDocFileFormat + '" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
+-- **************************************************************
+-- HEADER
+Insert [#TAGs](TagText) Values('<FatturaElettronicaHeader>')
+-- **************************************************************
+
+-- =============================================================
+-- Dati trasmissione
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<DatiTrasmissione>')
+-- **************************************************************
+
+Insert [#TAGs](TagText) Values('<IdTrasmittente>')
+Insert [#TAGs](TagText) Values('<IdPaese>' + @sTRT_Naz + '</IdPaese>')
+Insert [#TAGs](TagText) Values('<IdCodice>' + @sTRT_Codice + '</IdCodice>')
+Insert [#TAGs](TagText) Values('</IdTrasmittente>')
+Insert [#TAGs](TagText) Values('<ProgressivoInvio>' + @sDocFileNumber + '</ProgressivoInvio>')
+Insert [#TAGs](TagText) Values('<FormatoTrasmissione>' + @sDocFileFormat + '</FormatoTrasmissione>')
+Insert [#TAGs](TagText) Values('<CodiceDestinatario>' + @sANA_FepaDest + '</CodiceDestinatario>')
+
+-- <ContattiTrasmittente>
+-- 	<Telefono></Telefono>
+-- 	<Email></Email>
+-- </ContattiTrasmittente>
+
+If IsNull(@sANA_FepaPEC, '') <> ''
+	Insert [#TAGs](TagText) Values('<PECDestinatario>' + IsNull(@sANA_FepaPEC, '') + '</PECDestinatario>')
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</DatiTrasmissione>')
+-- **************************************************************
+
+-- =============================================================
+-- Cedente/Prestatore, azienda che emette la fattura
+--
+Set @sRifAmministrazione = IsNull(@sRifAmministrazione, '')
+Set @sAZI_ItemDes = IsNull(@sAZI_ItemDes, '')
+Set @sAZI_Ind = IsNull(@sAZI_Ind, '')
+Set @sAZI_Cap = IsNull(@sAZI_Cap, '')
+Set @sAZI_Loc = IsNull(@sAZI_Loc, '')
+Set @sAZI_Pro = IsNull(@sAZI_Pro, '')
+Set @sAZI_Eori = IsNull(@sAZI_Eori, '')
+
+Set @sAZI_ItemDes = dbo.[udfStrXML_ChRWE](@sAZI_ItemDes, 80)
+Set @sAZI_Ind = dbo.[udfStrXML_ChRWE](@sAZI_Ind, 60)
+Set @sAZI_Loc = dbo.[udfStrXML_ChRWE](@sAZI_Loc, 60)
+
+Set @sAZI_Cap = dbo.[udfStrStripNotN](@sAZI_Cap)
+Set @sAZI_Cap = Right('00000' + @sAZI_Cap, 5)
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<CedentePrestatore>')
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<DatiAnagrafici>')
+-- **************************************************************
+
+Insert [#TAGs](TagText) Values('<IdFiscaleIVA>')
+Insert [#TAGs](TagText) Values('<IdPaese>' + @sAZI_Country + '</IdPaese>')
+Insert [#TAGs](TagText) Values('<IdCodice>' + @sAZI_PIva + '</IdCodice>')
+Insert [#TAGs](TagText) Values('</IdFiscaleIVA>')
+
+If IsNull(@sAZI_CFis, '') <> ''
+	Insert [#TAGs](TagText) Values('<CodiceFiscale>' + Upper(@sAZI_CFis) + '</CodiceFiscale>')
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<Anagrafica>')
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<Denominazione>' + @sAZI_ItemDes +'</Denominazione>')
+-- <Nome></Nome>
+-- <Cognome></Cognome>
+--- <Titolo></Titolo>
+
+If @sAZI_Eori <> ''
+	Insert [#TAGs](TagText) Values('<CodEORI>' + @sAZI_Eori + '</CodEORI>')
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</Anagrafica>')
+-- **************************************************************
+
+-- <AlboProfessionale></AlboProfessionale>
+-- <ProvinciaAlbo></ProvinciaAlbo>
+-- <NumeroIscrizioneAlbo></NumeroIscrizioneAlbo>
+-- <DataIscrizioneAlbo></DataIscrizioneAlbo>
+
+Insert [#TAGs](TagText) Values('<RegimeFiscale>' + @sAZI_RFisc + '</RegimeFiscale>')
+Insert [#TAGs](TagText) Values('</DatiAnagrafici>')
+
+Insert [#TAGs](TagText) Values('<Sede>')
+Insert [#TAGs](TagText) Values('<Indirizzo>' + @sAZI_Ind + '</Indirizzo>')
+----Insert [#TAGs](TagText) Values('<NumeroCivico></NumeroCivico>')
+Insert [#TAGs](TagText) Values('<CAP>' + @sAZI_Cap + '</CAP>')
+Insert [#TAGs](TagText) Values('<Comune>' + @sAZI_Loc + '</Comune>')
+Insert [#TAGs](TagText) Values('<Provincia>' + @sAZI_Pro + '</Provincia>')
+Insert [#TAGs](TagText) Values('<Nazione>' + @sAZI_Naz + '</Nazione>')
+Insert [#TAGs](TagText) Values('</Sede>')
+
+-- <StabileOrganizzazione>
+-- 	<Indirizzo></Indirizzo>
+-- 	<NumeroCivico></NumeroCivico>
+-- 	<CAP></CAP>
+-- 	<Comune></Comune>
+-- 	<Provincia></Provincia>
+-- 	<Nazione></Nazione>
+-- </StabileOrganizzazione>
+
+If (IsNull(@bCompilaREA, 0) = 1) And (@bAZI_IsForAna = 0)
+Begin
+	Insert [#TAGs](TagText) Values('<IscrizioneREA>')
+	Insert [#TAGs](TagText) Values('<Ufficio>' + @sUfficioREA + '</Ufficio>')
+	Insert [#TAGs](TagText) Values('<NumeroREA>' + @sNumeroREA + '</NumeroREA>')
+	Insert [#TAGs](TagText) Values('<CapitaleSociale>' + dbo.[udfFepa_XML_value](@dCapitaleSociale, 0, 0) + '</CapitaleSociale>')
+	--[SU] : socio unico
+	--[SM] : più soci
+	Insert [#TAGs](TagText) Values('<SocioUnico>' + Case When IsNull(@bSocioUnico, 0) = 1 Then 'SU' Else 'SM' End + '</SocioUnico>')
+	--[LS] : in liquidazione
+	--[LN] : non in liquidazione
+	Insert [#TAGs](TagText) Values('<StatoLiquidazione>' + Case When IsNull(@bStatoLiquidazione, 0) = 1 Then 'LS' Else 'LN' End + '</StatoLiquidazione>')
+	Insert [#TAGs](TagText) Values('</IscrizioneREA>')
+End
+
+If (IsNull(@bCompilaContatti, 0) = 1) And (@bAZI_IsForAna = 0)
+Begin
+	Insert [#TAGs](TagText) Values('<Contatti>')
+	If IsNull(@sTelefono, '') <> ''
+		Insert [#TAGs](TagText) Values('<Telefono>' + @sTelefono + '</Telefono>')
+	If IsNull(@sFax, '') <> ''
+		Insert [#TAGs](TagText) Values('<Fax>' + @sFax + '</Fax>')
+	If IsNull(@sEmail, '') <> ''
+		Insert [#TAGs](TagText) Values('<Email>' + @sEmail + '</Email>')
+	Insert [#TAGs](TagText) Values('</Contatti>')
+End
+
+If (@sRifAmministrazione <> '') And (@bAZI_IsForAna = 0) -- max 20 caratteri
+Begin
+	Set @sRifAmministrazione = dbo.[udfStrXML_ChRWE](@sRifAmministrazione, 20)
+	Insert [#TAGs](TagText) Values('<RiferimentoAmministrazione>' + @sRifAmministrazione + '</RiferimentoAmministrazione>')
+End
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</CedentePrestatore>')
+-- **************************************************************
+
+-- <RappresentanteFiscale>
+-- <DatiAnagrafici>
+-- <IdFiscaleIVA>
+-- 		<IdPaese></IdPaese>
+-- 		<IdCodice></IdCodice>
+-- </IdFiscaleIVA>
+-- <CodiceFiscale></CodiceFiscale>
+-- <Anagrafica>
+-- 		<Denominazione></Denominazione>
+-- 		<Nome></Nome>
+-- 		<Cognome></Cognome>
+-- 		<Titolo></Titolo>
+-- 		<CodEORI></CodEORI>
+-- 	</Anagrafica>
+-- </DatiAnagrafici>
+-- </RappresentanteFiscale>
+
+-- =============================================================
+-- Cessionario/Committente (cliente)
+--
+Set @sANA_ItemDes = IsNull(@sANA_ItemDes, '')
+Set @sANA_Ind = IsNull(@sANA_Ind, '')
+Set @sANA_Cap = IsNull(@sANA_Cap, '')
+Set @sANA_Loc = IsNull(@sANA_Loc, '')
+Set @sANA_Pro = IsNull(@sANA_Pro, '')
+Set @sANA_Naz = IsNull(@sANA_Naz, '')
+Set @sANA_PIva = IsNull(@sANA_PIva, '')
+Set @sANA_CFis = IsNull(@sANA_CFis, '')
+Set @sANA_FepaType = IsNull(@sANA_FepaType, '')
+Set @sANA_FepaEsgIva = IsNull(@sANA_FepaEsgIva, '')
+Set @sANA_FepaDest = IsNull(@sANA_FepaDest, '')
+Set @sANA_FepaPEC = IsNull(@sANA_FepaPEC, '')
+Set @sANA_FepaEori = IsNull(@sANA_FepaEori, '')
+Set @sANA_Country = IsNull(@sANA_Country, '')
+Set @bANA_PFisica = IsNull(@bANA_PFisica, 0)
+Set @bANA_Cee = IsNull(@bANA_Cee, 0)
+
+If Left(@sANA_PIva, 2) = 'IT'
+	Set @sANA_PIva = Right(@sANA_PIva, 11)
+
+If @sANA_PIva In('n.a.', 'n.d.')
+	Set @sANA_PIva = ''
+
+If @sANA_CFis In('n.a.', 'n.d.')
+	Set @sANA_CFis = ''
+
+If @sANA_Country <> 'IT'
+	Set @sANA_Pro = ''
+
+Set @sANA_Surname = ''
+Set @sANA_Name = ''
+If @bANA_PFisica = 1
+Begin
+	Set @sANA_ItemDes = dbo.[udfStrReplaceRepeat](@sANA_ItemDes, '', '')
+	Set @sANA_Surname = dbo.[udfStrTokenN](@sANA_ItemDes, 1, 's')
+	Set @sANA_Name = dbo.[udfStrTokenN](@sANA_ItemDes, 2, 's')
+End
+
+-- ---------------------------------------------------------------
+Set @sANA_ItemDes = dbo.[udfStrXML_ChRWE](@sANA_ItemDes, 80)
+Set @sANA_Ind = dbo.[udfStrXML_ChRWE](@sANA_Ind, 60)
+Set @sANA_Loc = dbo.[udfStrXML_ChRWE](@sANA_Loc, 60)
+
+Set @sANA_Cap = dbo.[udfStrStripNotN](@sANA_Cap)
+Set @sANA_Cap = Right('00000' + @sANA_Cap, 5)
+
+Set @sANA_Surname = dbo.[udfStrXML_ChRWE](@sANA_Surname, 32)
+Set @sANA_Name = dbo.[udfStrXML_ChRWE](@sANA_Name, 32)
+-- ---------------------------------------------------------------
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<CessionarioCommittente>')
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<DatiAnagrafici>')
+-- **************************************************************
+
+If (@sANA_FepaType = 'PA')
+	Set @sANA_PIva = ''
+
+If (@sANA_PIva <> '')
+Begin
+	Insert [#TAGs](TagText) Values('<IdFiscaleIVA>')
+	Insert [#TAGs](TagText) Values('<IdPaese>' + @sANA_Country + '</IdPaese>')
+	Insert [#TAGs](TagText) Values('<IdCodice>' + @sANA_PIva + '</IdCodice>')
+	Insert [#TAGs](TagText) Values('</IdFiscaleIVA>')
+End
+
+If (@sANA_FepaDest <> 'XXXXXXX') And (@sANA_CFis <> '')
+	Insert [#TAGs](TagText) Values('<CodiceFiscale>' + Upper(@sANA_CFis) + '</CodiceFiscale>')
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<Anagrafica>')
+-- **************************************************************
+If @bANA_PFisica = 0
+	Insert [#TAGs](TagText) Values('<Denominazione>' + @sANA_ItemDes + '</Denominazione>')
+Else
+Begin
+	Insert [#TAGs](TagText) Values('<Nome>' + @sANA_Name + '</Nome>')
+	Insert [#TAGs](TagText) Values('<Cognome>' + @sANA_Surname + '</Cognome>')
+End
+------<Titolo></Titolo>
+If @sANA_FepaEori <> ''
+	Insert [#TAGs](TagText) Values('<CodEORI></CodEORI>')
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</Anagrafica>')
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</DatiAnagrafici>')
+-- **************************************************************
+
+Insert [#TAGs](TagText) Values('<Sede>')
+Insert [#TAGs](TagText) Values('<Indirizzo>' + @sANA_Ind + '</Indirizzo>')
+----Insert [#TAGs](TagText) Values('<NumeroCivico></NumeroCivico>')
+
+Insert [#TAGs](TagText) Values('<CAP>' + @sANA_Cap + '</CAP>')
+Insert [#TAGs](TagText) Values('<Comune>' + @sANA_Loc + '</Comune>')
+
+If @sANA_Pro <> ''
+	Insert [#TAGs](TagText) Values('<Provincia>' + @sANA_Pro + '</Provincia>')
+Insert [#TAGs](TagText) Values('<Nazione>' + @sANA_Country + '</Nazione>')
+Insert [#TAGs](TagText) Values('</Sede>')
+
+-- <StabileOrganizzazione>
+-- 	<Indirizzo></Indirizzo>
+-- 	<NumeroCivico></NumeroCivico>
+-- 	<CAP></CAP>
+-- 	<Comune></Comune>
+-- 	<Provincia></Provincia>
+-- 	<Nazione></Nazione>
+-- </StabileOrganizzazione>
+
+-- <RappresentanteFiscale>
+-- 	<IdFiscaleIVA>
+-- 		<IdPaese></IdPaese>
+-- 		<IdCodice></IdCodice>
+-- 	</IdFiscaleIVA>
+-- <Denominazione></Denominazione>
+-- <Nome></Nome>
+-- <Cognome></Cognome>
+-- </RappresentanteFiscale>
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</CessionarioCommittente>')
+-- **************************************************************
+
+-- <TerzoIntermediarioOSoggettoEmittente>
+-- 	<DatiAnagrafici>
+-- 		<IdFiscaleIVA>
+-- 			<IdPaese></IdPaese>
+-- 			<IdCodice></IdCodice>
+-- 		</IdFiscaleIVA>
+-- 	<CodiceFiscale></CodiceFiscale>
+-- 	<Anagrafica>
+-- 		<Denominazione></Denominazione>
+-- 		<Nome></Nome>
+-- 		<Cognome></Cognome>
+-- 		<Titolo></Titolo>
+-- 		<CodEORI></CodEORI>
+--	</Anagrafica>
+--	</DatiAnagrafici>
+-- </TerzoIntermediarioOSoggettoEmittente>
+-- <SoggettoEmittente></SoggettoEmittente>
+-- -------------------------------------------------------------
+-- TAG 1.6
+-- Da valorizzare in tutti i casi in cui la fattura è emessa da un soggetto diverso dal cedente/prestatore;
+-- [CC]: cessionario / committente
+-- [TZ]: terzo.
+If @iDOC_DocKind In(116, 117, 118, 119, 120)
+	Insert [#TAGs](TagText) Values('<SoggettoEmittente>CC</SoggettoEmittente>')
+
+-- =============================================================
+-- /HEADER
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</FatturaElettronicaHeader>')
+-- **************************************************************
+
+
+-- =============================================================
+-- BODY
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<FatturaElettronicaBody>')
+-- **************************************************************
+
+--
+-- Dati documento
+--
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<DatiGenerali>')
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<DatiGeneraliDocumento>')
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<TipoDocumento>' + @sDOC_DocTipAE + '</TipoDocumento>')
+Insert [#TAGs](TagText) Values('<Divisa>EUR</Divisa>')
+Insert [#TAGs](TagText) Values('<Data>' + dbo.[udfFepa_XML_date](@tDOC_DocDta) + '</Data>')
+Insert [#TAGs](TagText) Values('<Numero>' + @sDOC_DocNum + '</Numero>')
+
+--
+-- Ritenuta ALLA FONTE
+--
+If IsNull(@dRafValue_F, 0) <> 0
+Begin
+	-- RT01: Ritenuta persone fisiche
+	-- RT02: Ritenuta persone giuridiche
+	-- RT03: Contributo INPS
+	-- (RT04: Contributo ENASARCO - VEDI SOTTO)
+	-- RT05: Contributo ENPAM
+	-- RT06: Altro contributo previdenziale
+
+	Set @sRafTipo = Case When @sAZI_PIva <> @sAZI_CFis Then 'RT01' Else 'RT02' End
+	-- RafTaxID1 ritenuta alla fonte
+	--  1038  agenzia di rappresentanza
+	--  1040  professionista
+	--
+	--RafTaxID3 enasarco
+	--  ENAS-1  monomandatario
+	--  ENAS-2  plurimandatario
+	--  ENAS-3  società di rappresentanza
+
+	--A: Prestazioni di lavoro autonomo rientranti nell'esercizio di arte o professione abituale.
+	--Q: Provvigioni corrisposte ad agente o rappresentante di commercio monomandatario.
+	--R: Provvigioni corrisposte ad agente o rappresentante di commercio plurimandatario.
+	Set @sRafCau = Case When IsNull(@sAZI_RafTaxID3, '') = 'ENAS-1' Then 'Q' Else 'R' End
+	If IsNull(@sAZI_RafTaxID1, '') = '1040'
+		Set @sRafCau = 'A'
+
+	Insert [#TAGs](TagText) Values('<DatiRitenuta>')
+	Insert [#TAGs](TagText) Values('<TipoRitenuta>' + @sRafTipo + '</TipoRitenuta>')
+	Insert [#TAGs](TagText) Values('<ImportoRitenuta>' + dbo.[udfFepa_XML_value](@dRafValue_F, 0, @iDOC_DocTip) + '</ImportoRitenuta>')
+	Insert [#TAGs](TagText) Values('<AliquotaRitenuta>' + dbo.[udfFepa_XML_value](@dRafPc_F, 0, 0) + '</AliquotaRitenuta>')
+
+	Insert [#TAGs](TagText) Values('<CausalePagamento>' + @sRafCau + '</CausalePagamento>')
+ 	Insert [#TAGs](TagText) Values('</DatiRitenuta>')
+End -- @dRafValue_F <> 0
+
+--
+-- Ritenuta ENASARCO
+--
+If IsNull(@dRafValue_E, 0) <> 0
+Begin
+	--
+	-- RT04: Contributo ENASARCO
+	--
+	Set @sRafTipo = 'RT04'
+	--RafTaxID3 enasarco
+	--  ENAS-1  monomandatario
+	--  ENAS-2  plurimandatario
+	--  ENAS-3  società di rappresentanza
+	-- Q: Provvigioni corrisposte ad agente o rappresentante di commercio monomandatario.
+	-- R: Provvigioni corrisposte ad agente o rappresentante di commercio plurimandatario.
+	Set @sRafCau = Case When IsNull(@sAZI_RafTaxID3, '') = 'ENAS-1' Then 'Q' Else 'R' End
+
+	Insert [#TAGs](TagText) Values('<DatiRitenuta>')
+	Insert [#TAGs](TagText) Values('<TipoRitenuta>' + @sRafTipo + '</TipoRitenuta>')
+	Insert [#TAGs](TagText) Values('<ImportoRitenuta>' + dbo.[udfFepa_XML_value](@dRafValue_E, 0, @iDOC_DocTip) + '</ImportoRitenuta>')
+	Insert [#TAGs](TagText) Values('<AliquotaRitenuta>' + dbo.[udfFepa_XML_value](@dRafPc_E, 0, 0) + '</AliquotaRitenuta>')
+
+	Insert [#TAGs](TagText) Values('<CausalePagamento>' + @sRafCau + '</CausalePagamento>')
+ 	Insert [#TAGs](TagText) Values('</DatiRitenuta>')
+End -- @dRafValue_E <> 0
+
+--
+-- Bollo
+--
+If IsNull(@dDOC_SpBolli, 0) <> 0
+Begin
+	Insert [#TAGs](TagText) Values('<DatiBollo>')
+	Insert [#TAGs](TagText) Values('<BolloVirtuale>SI</BolloVirtuale>')
+	If (IsNull(@bBolloImporto, 0) = 1)
+		Insert [#TAGs](TagText) Values('<ImportoBollo>' + dbo.[udfFepa_XML_value](@dDOC_SpBolli, 0, @iDOC_DocTip) + '</ImportoBollo>')
+	Insert [#TAGs](TagText) Values('</DatiBollo>')
+End
+
+--
+-- Cassa previdenziale
+--
+--<DatiCassaPrevidenziale>
+--	<TipoCassa>...</TipoCassa>
+--	<AlCassa>...</AlCassa>
+--	<ImportoContributoCassa>...</ImportoContributoCassa>
+--	<ImponibileCassa>...</ImponibileCassa>
+--	<AliquotaIVA>...</AliquotaIVA>
+--	<Ritenuta>...</Ritenuta>
+--	<Natura>...</Natura>
+--	<RiferimentoAmministrazione>...</RiferimentoAmministrazione>
+--</DatiCassaPrevidenziale>
+
+--
+-- EcoBonus e assibilabili
+--
+If @iPagTabIva = 4
+Begin
+	If IsNull(@dPagTabBonus, 0) = 0
+		Set @dPagTabBonus = 50
+
+	Set @dBonusValue = @dDOC_DocTot - (@dDOC_DocTot * @dPagTabBonus / 100.00)
+
+	Insert [#TAGs](TagText) Values('<ScontoMaggiorazione>')
+	Insert [#TAGs](TagText) Values('<Tipo>SC</Tipo>')
+	Insert [#TAGs](TagText) Values('<Percentuale>' + dbo.[udfFepa_XML_value](@dPagTabBonus, 0, @iDOC_DocTip) + '</Percentuale>')
+	Insert [#TAGs](TagText) Values('<Importo>' + dbo.[udfFepa_XML_value](@dBonusValue, 0, @iDOC_DocTip) + '</Importo>')
+	Insert [#TAGs](TagText) Values('</ScontoMaggiorazione>')
+End
+
+--
+-- TOTALE DOCUMENTO
+--
+Insert [#TAGs](TagText) Values('<ImportoTotaleDocumento>' + dbo.[udfFepa_XML_value](@dDOC_DocTot, 0, @iDOC_DocTip) + '</ImportoTotaleDocumento>')
+--<Arrotondamento></Arrotondamento>
+
+--
+-- VARIE in CAUSALE
+--
+
+-- Fattorie Piemonte - Inizio
+
+--If @sDOC_Causale <> ''
+--	Insert [#TAGs](TagText) Values('<Causale>' + @sDOC_Causale + '</Causale>')
+
+Declare @sCausaleExt varchar(4096) = ''
+Declare @sCausaleExtInd varchar(1024) = ''
+Declare @sCausaleExtCAP varchar(16) = ''
+Declare @sCausaleExtLoc varchar(1024) = ''
+Declare @sCausaleExtPro varchar(32) = ''
+
+-- Per:
+-- Lombardo SNC (00055)
+-- COS. BAR (00127)
+-- Sapori e Tradizioni s.a.s. (00552)
+-- Giant S.r.l. (00601)
+If @sDOC_AnaCod In('00055', '00127', '00552', '00601')
+Begin
+	If Len(@sDsmCod) > 0
+	Begin
+		Select
+			@sCausaleExtInd = RTrim(LTrim(IsNull(Ind, '')))
+			, @sCausaleExtCAP = RTrim(LTrim(IsNull(CAP, '')))
+			, @sCausaleExtLoc = RTrim(LTrim(IsNull(Loc, '')))
+			, @sCausaleExtPro = RTrim(LTrim(IsNull(Pro, '')))
+		From
+			dbo.[MixAnaSedi]
+		Where
+			ItemType = 1
+			And ItemID = @sDOC_AnaCod
+			And ItemIDSede = @sDsmCod
+
+		Set @sCausaleExtInd = IsNull(@sCausaleExtInd, '')
+		Set @sCausaleExtCAP = IsNull(@sCausaleExtCAP, '')
+		Set @sCausaleExtLoc = IsNull(@sCausaleExtLoc, '')
+		Set @sCausaleExtPro = IsNull(@sCausaleExtPro, '')
+	End
+
+	If Len(@sCausaleExtInd + @sCausaleExtCAP + @sCausaleExtLoc + @sCausaleExtPro) = 0
+	Begin
+		Select
+			@sCausaleExtInd = RTrim(LTrim(IsNull(Ind, '')))
+			, @sCausaleExtCAP = RTrim(LTrim(IsNull(CAP, '')))
+			, @sCausaleExtLoc = RTrim(LTrim(IsNull(Loc, '')))
+			, @sCausaleExtPro = RTrim(LTrim(IsNull(Pro, '')))
+		From
+			dbo.[MixAna]
+		Where
+			ItemType = 1
+			And ItemID = @sDOC_AnaCod
+
+		Set @sCausaleExtInd = IsNull(@sCausaleExtInd, '')
+		Set @sCausaleExtCAP = IsNull(@sCausaleExtCAP, '')
+		Set @sCausaleExtLoc = IsNull(@sCausaleExtLoc, '')
+		Set @sCausaleExtPro = IsNull(@sCausaleExtPro, '')
+	End
+
+	If Len(@sCausaleExtInd + @sCausaleExtCAP + @sCausaleExtLoc + @sCausaleExtPro) > 0
+	Begin
+		If Len(@sCausaleExtInd) > 0
+			Set @sCausaleExt = @sCausaleExtInd
+		If Len(@sCausaleExtCAP) > 0
+		Begin
+			If Len(@sCausaleExt) > 0
+				Set @sCausaleExt = @sCausaleExt + ', '
+			Set @sCausaleExt = @sCausaleExt + @sCausaleExtCAP
+		End
+		If Len(@sCausaleExtLoc) > 0
+		Begin
+			If Len(@sCausaleExt) > 0
+				Set @sCausaleExt = @sCausaleExt + ', '
+			Set @sCausaleExt = @sCausaleExt + @sCausaleExtLoc
+		End
+		If Len(@sCausaleExtPro) > 0
+		Begin
+			If Len(@sCausaleExt) > 0
+				Set @sCausaleExt = @sCausaleExt + ' '
+			Set @sCausaleExt = @sCausaleExt + '(' + @sCausaleExtPro + ')'
+		End
+	End
+End
+
+If (IsNull(@sDOC_Causale, '') + @sCausaleExt) <> ''
+	Insert [#TAGs](TagText) Values('<Causale>' + RTrim(Left(LTrim(IsNull(@sDOC_Causale, '') + ' ' + @sCausaleExt), 200)) + '</Causale>')
+
+-- Fattorie Piemonte - Fine
+
+--<Art73></Art73>
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</DatiGeneraliDocumento>')
+-- **************************************************************
+
+
+-- Per autofatture riportare Dati fattura collegata
+declare @sForDocNum varchar(64)
+declare @sForDocDta varchar(64)
+
+select top 1 @sForDocNum=ForDocNum, @sForDocDta=ForDocDta FROM dbo.clidoc where Uniq=@iDocUniq
+if isnull(@sForDocNum,'')<>'' 
+begin
+	Insert [#TAGs](TagText) Values('<DatiFattureCollegate>')
+	Insert [#TAGs](TagText) Values('<IdDocumento>' + isnull(@sForDocNum,'') + '</IdDocumento>')
+	Insert [#TAGs](TagText) Values('<Data>' +  dbo.[udfFepa_XML_date](isnull(@sForDocDta,'')) + '</Data>')
+	Insert [#TAGs](TagText) Values('</DatiFattureCollegate>')
+end
+-------------------------------------------------------------------------------
+If @iDOC_Fornitura <> 0
+Begin
+	Set @sSupply_CIG = IsNull(@sSupply_CIG, '')
+	Set @sSupply_CUP = IsNull(@sSupply_CUP, '')
+	Set @sSupply_BuyOrder = IsNull(@sSupply_BuyOrder, '')
+	--@tSupply_BuyOrderDate
+	Set @sSupply_Contract = IsNull(@sSupply_Contract, '')
+	Set @sSupply_Convention = IsNull(@sSupply_Convention, '')
+	Set @sSupply_Reception = IsNull(@sSupply_Reception, '')
+	Set @iSupply_FaseSAL = IsNull(@iSupply_FaseSAL, 0)
+
+	If (@sSupply_CIG <> '') Or (@sSupply_CUP <> '') Or (@sSupply_BuyOrder <> '')
+	Begin
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('<DatiOrdineAcquisto>')
+		-- **************************************************************
+
+		----<RiferimentoNumeroLinea></RiferimentoNumeroLinea>'
+		If @sSupply_BuyOrder <> ''
+			Insert [#TAGs](TagText) Values('<IdDocumento>' + @sSupply_BuyOrder + '</IdDocumento>')
+
+		If @tSupply_BuyOrderDate IS NOT NULL
+			Insert [#TAGs](TagText) Values('<Data>' +  dbo.[udfFepa_XML_date](@tSupply_BuyOrderDate) + '</Data>')
+
+		----<NumItem></NumItem>
+		If (@sSupply_Contract <> '') Or (@sSupply_Convention <> '')
+			Insert [#TAGs](TagText) Values('<CodiceCommessaConvenzione>'
+				+ Case
+					When (@sSupply_Contract <> '') And (@sSupply_Convention <> '') Then @sSupply_Contract + ' - ' + @sSupply_Convention
+					When (@sSupply_Contract <> '') Then @sSupply_Contract
+					When (@sSupply_Convention <> '') Then @sSupply_Convention
+					End
+				+ '</CodiceCommessaConvenzione>')
+
+		If @sSupply_CUP <> ''
+			Insert [#TAGs](TagText) Values('<CodiceCUP>' + @sSupply_CUP + '</CodiceCUP>')
+
+		If @sSupply_CIG <> ''
+			Insert [#TAGs](TagText) Values('<CodiceCIG>' + @sSupply_CIG + '</CodiceCIG>')
+
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('</DatiOrdineAcquisto>')
+		-- **************************************************************
+	End -- (@sSupply_CIG <> '') Or (@sSupply_CUP <> '') Or (@sSupply_BuyOrder <> '')
+
+	If IsNull(@sSupply_Contract, '') <> ''
+	Begin
+		Insert [#TAGs](TagText) Values('<DatiContratto>')
+		Insert [#TAGs](TagText) Values('<IdDocumento>' + @sSupply_Contract + '</IdDocumento>')
+		Insert [#TAGs](TagText) Values('</DatiContratto>')
+	End
+End --  @iDOC_Fornitura <> 0
+
+	-- <DatiConvenzione></DatiConvenzione>
+	-- <DatiRicezione></DatiRicezione>')
+
+--
+-- <DatiFattureCollegate></DatiFattureCollegate>
+--
+If @sBuildPrdCodDocRif <> ''
+Begin
+	Declare @sDocRif varchar(20) = ''
+
+	Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+	Select Left(LIN.PrdDes, 20)
+	From dbo.[CliDocLin] LIN
+	Where (LIN.UniqDoc = @iDocUniq)
+		And (LIN.PrdCod = @sBuildPrdCodDocRif)
+		And (IsNull(LIN.PrdDes, '') <> '')
+	Order By LIN.LinNum
+
+	Open [cCursor]
+	Fetch Next From [cCursor] Into @sDocRif
+	While (@@Fetch_Status <> -1)
+	Begin
+		Insert [#TAGs](TagText) Values('<DatiFattureCollegate>')
+		Insert [#TAGs](TagText) Values('<IdDocumento>' + @sDocRif + '</IdDocumento>')
+		Insert [#TAGs](TagText) Values('</DatiFattureCollegate>')
+		-- ----------------------------------------------------------
+		Fetch Next From [cCursor] Into @sDocRif
+	End
+	Close [cCursor]
+	Deallocate [cCursor]
+End -- @sBuildPrdCodDocRif <> ''
+
+If (@iDOC_Fornitura <> 0) And (@iSupply_FaseSAL > 0)
+Begin
+	Insert [#TAGs](TagText) Values
+		  ('<DatiSAL>')
+		, ('<RiferimentoFase>' + Cast(@iSupply_FaseSAL As varchar(8)) + '</RiferimentoFase>')
+		, ('</DatiSAL>')
+End -- @iDOC_Fornitura <> 0 And @iSupply_FaseSAL > 0
+
+
+If @iCountDDT > 0
+Begin
+	-- INIZIO PERS
+	If @sDOC_AnaCod = '00704' -- Esselunga
+	Begin
+		Declare @iRifNumLin smallint
+		Declare @sIdDoc varchar(64)
+		Declare @sDateDoc varchar(64)
+		Declare @iLinNum smallint
+		Declare @sNumExt varchar(64)
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('<DatiOrdineAcquisto>')
+		-- **************************************************************
+		Declare @iCountLinNum int
+		
+		Select @iCountLinNum = Count(LinNum)
+		From dbo.[CliDocLin] 
+		Where PrdCod = '.Rif' And PrdDes Like 'D.D.T.%' And UniqDoc = @iDocUniq
+		
+		Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+			Select LinNum
+			From dbo.[CliDocLin] 
+			Where PrdCod = '.Rif' And PrdDes Like 'D.D.T.%' And UniqDoc = @iDocUniq 
+			Order By LinNum
+
+			Open [cCursor]
+			Fetch Next From [cCursor] Into @iLinNum
+			While (@@Fetch_Status <> -1)
+			Begin
+				Select @sIdDoc = LTRIM(RTRIM(
+			    SUBSTRING(
+			      prddes,
+			      CHARINDEX('d.d.t.', LOWER(prddes)) + 7,
+			      CHARINDEX('del', LOWER(prddes)) - CHARINDEX('d.d.t.', LOWER(prddes)) - 7
+			    )
+				  )),
+				  @sDateDoc = LTRIM(RTRIM(
+				    SUBSTRING(
+				      prddes,
+				      CHARINDEX('del', LOWER(prddes)) + 4, 10
+				    )
+				  ))
+				From [CliDocLin] Where PrdCod = '.Rif' And PrdDes Like 'D.D.T.%' And UniqDoc = @iDocUniq And LinNum = @iLinNum
+				  
+				Select @sNumExt = NumExt From [CliDoc] Where DocNum = @sIdDoc And DocDta = Cast(@sDateDoc as date) And DocTip = 14 And AnaCod = @sDOC_AnaCod
+				Set @sNumExt = IsNull(@sNumExt,'')
+			  	If @iCountLinNum > 1
+				Begin
+					Insert [#TAGs](TagText) Values('<RiferimentoNumeroLinea>' + Cast(@iLinNum as varchar(8)) + '</RiferimentoNumeroLinea>')
+				End	
+				Insert [#TAGs](TagText) Values('<IdDocumento>' + @sNumExt + '</IdDocumento>')
+			  
+				-- ----------------------------------------------------------
+				Fetch Next From [cCursor] Into @iLinNum
+			End
+			Close [cCursor]
+			Deallocate [cCursor]
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('</DatiOrdineAcquisto>')
+		-- **************************************************************
+	End --@sDOC_AnaCod = '00704
+	-- FINE PERS
+
+	Declare @sDdtNum varchar(32)
+	Declare @tDdtDta date
+
+	Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+	Select DdtNum, DdtDta
+	From @tbDDT
+	Order By DdtID
+
+	Open [cCursor]
+	Fetch Next From [cCursor] Into @sDdtNum, @tDdtDta
+	While (@@Fetch_Status <> -1)
+	Begin
+		Insert [#TAGs](TagText) Values('<DatiDDT>')
+		Insert [#TAGs](TagText) Values('<NumeroDDT>' + @sDdtNum + '</NumeroDDT>')
+		Insert [#TAGs](TagText) Values('<DataDDT>' + dbo.[udfFepa_XML_date](@tDdtDta) + '</DataDDT>')
+		----Insert [#TAGs](TagText) Values('<RiferimentoNumeroLinea></RiferimentoNumeroLinea>')
+		Insert [#TAGs](TagText) Values('</DatiDDT>')
+		-- ----------------------------------------------------------
+		Fetch Next From [cCursor] Into @sDdtNum, @tDdtDta
+	End
+	Close [cCursor]
+	Deallocate [cCursor]
+End -- @iCountDDT > 0
+
+-- PERS M2 SISTEMI
+If @sDOC_AnaCod = '00743' -- BOREALE
+Begin
+	Declare @sIndirizzoResa varchar(128)
+	Declare @sMezzoTrasporto varchar(128)
+	Set @sIndirizzoResa = (Select Concat(Ind,', ',Cap,' ',Loc,' (',Pro,') ',
+	(Select ItemCode
+	From [GeoCountry]
+	Where ItemName = Naz))
+	From [MixAnaSedi]
+	Where ItemID = @sDOC_AnaCod And ItemIDSede = @sDsmCod)
+	
+	Set @sMezzoTrasporto = (Select Itemdes From [BpDataSystem].dbo.[SystemValues]
+	Where TableID = 'TrMezzo' And ItemID = @iTrMezzo)
+	Insert [#TAGs](TagText) Values('<DatiTrasporto>')
+	Insert [#TAGs](TagText) Values('<MezzoTrasporto>' + @sMezzoTrasporto + '</MezzoTrasporto>')
+	Insert [#TAGs](TagText) Values('<IndirizzoResa>' + @sIndirizzoResa + '</IndirizzoResa>')
+	----Insert [#TAGs](TagText) Values('<RiferimentoNumeroLinea></RiferimentoNumeroLinea>')
+	Insert [#TAGs](TagText) Values('</DatiTrasporto>')
+End
+-- FINE PERS M2 SISTEMI
+-- <DatiTrasporto>
+-- 		<DatiAnagraficiVettore>
+-- 		<IdFiscaleIVA>
+-- 			<IdPaese></IdPaese>
+-- 			<IdCodice></IdCodice>
+-- 		</IdFiscaleIVA>
+-- 		<CodiceFiscale></CodiceFiscale>
+-- 	<Anagrafica>
+-- 		<Denominazione></Denominazione>
+-- 		<Nome></Nome>
+-- 		<Cognome></Cognome>
+-- 		<Titolo></Titolo>
+-- 		<CodEORI></CodEORI>
+--	</Anagrafica>
+--	<NumeroLicenzaGuida></NumeroLicenzaGuida>
+--	</DatiAnagraficiVettore>
+--
+--	<MezzoTrasporto></MezzoTrasporto>
+--	<CausaleTrasporto></CausaleTrasporto>
+--	<NumeroColli></NumeroColli>
+--	<Descrizione></Descrizione>
+--	<UnitaMisuraPeso></UnitaMisuraPeso>
+--	<PesoLordo></PesoLordo>
+--	<PesoNetto></PesoNetto>
+--	<DataOraRitiro></DataOraRitiro>
+--	<DataInizioTrasporto></DataInizioTrasporto>
+--	<TipoResa></TipoResa>
+--
+-- <IndirizzoResa>
+--		<Indirizzo></Indirizzo>
+-- 		<NumeroCivico></NumeroCivico>
+-- 		<CAP></CAP>
+-- 		<Comune></Comune>
+-- 		<Provincia></Provincia>
+-- 		<Nazione></Nazione>
+-- 	</IndirizzoResa>
+--	<DataOraConsegna></DataOraConsegna>
+-- </DatiTrasporto>
+--
+-- <NormaDiRiferimento></NormaDiRiferimento>
+
+-- <FatturaPrincipale>
+-- 		<NumeroFatturaPrincipale></NumeroFatturaPrincipale>
+-- 		<DataFatturaPrincipale></DataFatturaPrincipale>
+-- </FatturaPrincipale>
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</DatiGenerali>')
+-- **************************************************************
+
+--
+-- dettaglio merce/servizi
+--
+-- **************************************************************
+Insert [#TAGs](TagText) Values('<DatiBeniServizi>')
+-- **************************************************************
+
+If @iCountLIN > 0
+BEGIN
+	Declare @bLinOmg bit
+	Declare @sPrdCod varchar(32)
+	Declare @sPrdCodType varchar(64)
+	Declare @sPrdDes nvarchar(2048)
+	Declare @sPrdParams varchar(512)
+	Declare @sPrdUm varchar(8)
+	Declare @dPrdPrz decimal(19, 2)
+	Declare @dPrdQta decimal(19, 2)
+	Declare @sPrdSc varchar(16)
+	Declare @dPrdPrz2 decimal(19, 6)
+	Declare @dPrdAdd decimal(19, 6)
+	Declare @dTotPrz2 decimal(19, 2)
+	Declare @iPrdUso tinyint
+	Declare @iDocTipFrom tinyint
+	Declare @iUniqFrom int
+	Declare @iUniqLinFrom int
+	Declare @iRow int = 0
+	Declare @sRow varchar(8) = '0'
+
+	-- PrdAna
+	-- settore sanitario
+	Declare @sPRD_Info1 varchar(32)
+	Declare @sPRD_Tab1 varchar(16)
+
+	-- ECR
+	-- fattura su scontrino
+	Declare @sECR_Serial varchar(16)
+	Declare @sECR_DocNumEcr varchar(16)
+	Declare @sECR_DocZNumEcr varchar(8)
+	Declare @sECR_DocNumDOC varchar(32)
+	Declare @tECR_DocDta date
+	Declare @sECR_DocID varchar(64)
+
+	-- valori calcolati
+	Declare @dPrezzo decimal(19, 6)
+	Declare @dSconto decimal(19, 2)
+
+	-- --------------------------------------------------------------
+
+	Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+	Select
+		  LIN.LinOmg
+		, LIN.PrdCod, LIN.PrdParams, LIN.PrdDes, LIN.PrdUm, LIN.PrdQta
+		, LIN.PrdPrz, LIN.PrdSc, LIN.PrdPrz2, LIN.PrdAdd, LIN.TotPrz2
+		, LIN.IvaCod, LIN.IvaAlq, IVA.ItemType, IVA.ItemAE
+		, LIN.PrdUso
+		, LIN.DocTipFrom, LIN.UniqFrom, LIN.UniqLinFrom
+		, PRD.Info1, PRD.Tab1
+	From dbo.[CliDocLin] LIN
+	Left Join dbo.[PrdAna] PRD On PRD.PrdCod = LIN.PrdCod
+	Left Join dbo.[IvaTab] IVA On IVA.ItemID = LIN.IvaCod
+	Where LIN.UniqDoc = @iDocUniq
+		And (LIN.PrdCod <> @sBuildPrdCodDocRif)
+		And (IsNull(PRD.PrdTip, '') <> @sBuildPrdTipExclude)
+	Order By LIN.LinNum
+
+	Open [cCursor]
+	Fetch Next From [cCursor] Into
+				  @bLinOmg
+				, @sPrdCod, @sPrdParams, @sPrdDes, @sPrdUm, @dPrdQta
+				, @dPrdPrz, @sPrdSc, @dPrdPrz2, @dPrdAdd, @dTotPrz2
+				, @sIvaCod, @dIvaAlq, @iIvaType, @sIVA_T_AE
+				, @iPrdUso
+				, @iDocTipFrom, @iUniqFrom, @iUniqLinFrom
+				, @sPRD_Info1, @sPRD_Tab1
+	While (@@Fetch_Status <> -1)
+	Begin
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Set @bLinOmg = IsNull(@bLinOmg, 0)
+		Set @sPrdParams = LTrim(RTrim(Left(IsNull(@sPrdParams, ''), 60)))
+		Set @sPrdDes = LTrim(RTrim(Left(IsNull(@sPrdDes, ''), 1000)))
+
+
+		Set @sPrdUm = IsNull(@sPrdUm, '')
+		Set @iPrdUso = IsNull(@iPrdUso, 0)
+		Set @dPrdQta = IsNull(@dPrdQta, 0)
+		Set @dPrdPrz = IsNull(@dPrdPrz, 0)
+		Set @sPrdSc = IsNull(@sPrdSc, '')
+		Set @dPrdPrz2 = IsNull(@dPrdPrz2, 0)
+		Set @dPrdAdd = IsNull(@dPrdAdd, 0)
+		Set @dTotPrz2 = IsNull(@dTotPrz2, 0)
+
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		Set @dIvaAlq = IsNull(@dIvaAlq, 0)
+		Set @iIvaType = IsNull(@iIvaType, 0)
+		Set @sIVA_T_AE = IsNull(@sIVA_T_AE, '')
+		Set @iPrdUso = IsNull(@iPrdUso, 0)
+
+		Set @iDocTipFrom = IsNull(@iDocTipFrom, 0)
+		Set @iUniqFrom = IsNull(@iUniqFrom, 0)
+		Set @iUniqLinFrom = IsNull(@iUniqLinFrom, 0)
+
+		Set @sPRD_Info1 = IsNull(@sPRD_Info1, '')
+		Set @sPRD_Tab1 = IsNull(@sPRD_Tab1, '')
+
+		-- ----------------------------------------------------------------------------
+		--		If (@iPrdUso In(22, 23, 24, 31, 32, 33))
+		--			Set @dPrdPrz2 = Case @iPrdUso
+		--							When 22 Then @dPrdPrz2 / 100.00
+		--							When 23 Then @dPrdPrz2 / 1000.00
+		--							When 24 Then @dPrdPrz2 / 10000.00
+		--							When 31 Then @dPrdPrz2 / 50.00
+		--							When 32 Then @dPrdPrz2 / 500.00
+		--							When 33 Then @dPrdPrz2 / 5000.00
+		--							End
+		--
+		--		Else If (@dPrdQta <> 0) And (@iPrdUso In(11, 12, 13, 14, 102, 111, 112, 113, 114, 115, 116, 117, 131, 132, 133))
+		--				Set @dPrdPrz2 = @dTotPrz2 / @dPrdQta
+
+		-- ----------------------------------------------------------------------------
+		Set @dPrezzo = 0
+		Set @dSconto = 0
+		If @iBuildPrdPrzRule = 0
+		Begin
+			Set @dPrezzo = @dTotPrz2 / (Case When @dPrdQta <> 0 Then @dPrdQta Else 1.00 End)
+		End
+		Else If @iBuildPrdPrzRule = 10
+		Begin
+			Set @dPrezzo = @dPrdPrz
+			Set @dSconto = @dPrdPrz - @dPrdPrz2
+		End
+
+		-- ----------------------------------------------------------------------------
+		If (@sIvaCod = '') Or (@dIvaAlq = 0)
+			Set @sIVA_T_AE = Case When (@sIVA_T_AE = '') Then @sIVA_T_AE_FC Else @sIVA_T_AE End
+
+		If (@sIvaCod <> '')
+		Begin
+			If (@dIvaAlq <> 0)
+				Set @sIVA_T_AE = ''
+			Else
+				Set @sIVA_T_AE = Case
+					When (@sIVA_T_AE = '') Then dbo.[udfAEComCodes_iva](@sIvaCod)
+					Else @sIVA_T_AE
+					End
+		End
+		-- ----------------------------------------------------------------------------
+
+		Set @sPrdCodType = 'Codice prodotto o servizio'
+		If (@sPrdCod Like '.%') Or (@sPrdCod Like '>%')
+			Set @sPrdCodType = 'Riferimento descrittivo'
+
+		If @bLinOmg = 1
+			Set @sPrdCodType = 'OM'
+
+		If (@iBuildPrdCodRule = 10) And (@sPRD_Info1 <> '') And (@sPRD_Tab1 <> '')
+		Begin
+			-- settore sanitario
+			Set @sPrdCodType = @sPRD_Tab1
+			Set @sPrdDes = 'Cod. ' + @sPrdCod + ': ' + @sPrdDes
+			Set @sPrdCod = @sPRD_Info1
+		End
+
+		-- ----------------------------------------------------------------------------
+		Set @sPrdCod = dbo.[udfStrXML_ChRWE](@sPrdCod, 0)
+		Set @sPrdDes = dbo.[udfStrXML_ChRWE](@sPrdDes, 1000)
+		-- ----------------------------------------------------------------------------
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		-- ----------------------------------------------------------------------------
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+
+		-- [SC]: sconto, [PR]: premio, [AB]: abbuono, [AC]: spesa accessoria
+		-- Insert [#TAGs](TagText) Values('<TipoCessionePrestazione>AB</TipoCessionePrestazione>')
+
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>' + @sPrdCodType + '</CodiceTipo>')
+
+		-- Fattorie Piemonte - Inizio
+		-- Insert [#TAGs](TagText) Values('<CodiceValore>' + @sPrdCod + '</CodiceValore>')
+		If @sDOC_AnaCod <> '00704' -- Non-Esselunga
+			Insert [#TAGs](TagText) Values('<CodiceValore>' + @sPrdCod + '</CodiceValore>')
+		Else
+			If Len(RTrim(LTrim(IsNull(@sPRD_Info1, '')))) > 0
+				Insert [#TAGs](TagText) Values('<CodiceValore>' + @sPRD_Info1 + '</CodiceValore>')
+			Else
+				Insert [#TAGs](TagText) Values('<CodiceValore>' + @sPrdCod + '</CodiceValore>')
+		-- Fattorie Piemonte - Fine
+
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<Descrizione>' + @sPrdDes + '</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>' + dbo.[udfFepa_XML_value](@dPrdQta, 0, 0) + '</Quantita>')
+
+		If @sPrdUm <> ''
+			Insert [#TAGs](TagText) Values('<UnitaMisura>' + @sPrdUm + '</UnitaMisura>')
+
+		-- <DataInizioPeriodo></DataInizioPeriodo>
+		-- <DataFinePeriodo></DataFinePeriodo>
+
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value_decimals](@dPrezzo, 6, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+
+		If @iBuildPrdPrzRule = 10
+		Begin
+			-- SC: sconto
+			-- MG: maggiorazione
+			If @dSconto <> 0
+			Begin
+				Insert [#TAGs](TagText) Values('<ScontoMaggiorazione>')
+				Insert [#TAGs](TagText) Values('<Tipo>SC</Tipo>')
+				Insert [#TAGs](TagText) Values('<Importo>' + dbo.[udfFepa_XML_value_decimals](@dSconto, 2, 0, @iDOC_DocTip) + '</Importo>')
+				Insert [#TAGs](TagText) Values('</ScontoMaggiorazione>')
+			End
+
+			If @dPrdAdd <> 0
+			Begin
+				Insert [#TAGs](TagText) Values('<ScontoMaggiorazione>')
+				Insert [#TAGs](TagText) Values('<Tipo>' + Case When @dPrdAdd > 0 Then 'MG' Else 'SC' End + '</Tipo>')
+				Insert [#TAGs](TagText) Values('<Importo>' + dbo.[udfFepa_XML_value_decimals](@dPrdAdd, 2, 0, @iDOC_DocTip) + '</Importo>')
+				Insert [#TAGs](TagText) Values('</ScontoMaggiorazione>')
+			End
+		End
+
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dTotPrz2, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+
+		-- If ((IsNull(@dRafValue_F, 0) <> 0) And (@dTotPrz2 <> 0))
+		--	Insert [#TAGs](TagText) Values('<Ritenuta>SI</Ritenuta>')
+
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+
+		If IsNull(@sSupply_RifAmm, '') <> ''
+		Begin
+			Set @sSupply_RifAmm = dbo.[udfStrXML_ChRWE](@sSupply_RifAmm, 20)
+			Insert [#TAGs](TagText) Values('<RiferimentoAmministrazione>' + @sSupply_RifAmm + '</RiferimentoAmministrazione>')
+		End
+
+		-- Fattorie Piemonte - Inizio
+		If @sDOC_AnaCod = '00704' -- Esselunga
+		Begin
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>DP</TipoDato>')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + @sPVCod + '</RiferimentoTesto>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
+		-- Fattorie Piemonte - Fine
+
+		If @sPrdParams <> ''
+		Begin
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>MISURE</TipoDato>')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + @sPrdParams + '</RiferimentoTesto>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
+
+		If @sPrdSc <> ''
+		Begin
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>SCONTO</TipoDato>')
+
+			If @iBuildPrdPrzRule = 10
+			Begin
+				Insert [#TAGs](TagText) Values('<RiferimentoTesto>Sconto '+ @sPrdSc + '</RiferimentoTesto>')
+			End
+			Else
+			Begin
+				Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + Cast(@dPrdPrz As varchar(16)) + ' EUR SC. ' + @sPrdSc + '</RiferimentoTesto>')
+			End
+
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
+
+		If @bLinOmg = 1
+		Begin
+			--Tipo dato”=”Omaggio"
+			--“Valore testo”=”Con rivalsa”, “Senza rivalsa”, “Sconto merce”)
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>OMAGGIO</TipoDato>')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + Case When @dTotPrz2 <> 0 Then 'c/rivalsa IVA' Else 'No IVA' End + '</RiferimentoTesto>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
+
+		If IsNull(@dRafValue_E, 0) <> 0
+		Begin
+			-- ENASARCO (VEDI ANCHE SOPRA)
+			--
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>Enasarco</TipoDato>')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + @sRafRif_E + '</RiferimentoTesto>')
+			--Insert [#TAGs](TagText) Values('<RiferimentoNumero>' + dbo.[udfFepa_XML_value](@dRafValue_E, 0, 0) + '</RiferimentoNumero>')
+			--Insert [#TAGs](TagText) Values('<RiferimentoData>' + dbo.[udfFepa_XML_date](@tDOC_DocDta) + '</RiferimentoData>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
+
+		If (IsNull(@dBonusValue, 0) <> 0) And (@dTotPrz2 <> 0)
+		Begin
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>Sconto</TipoDato>')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>Bonus applicato in base Art.121 DL 34/2020</RiferimentoTesto>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+			-- Set @dBonusValue = 0
+		End
+
+		If @iDocTipFrom = 18
+		Begin
+			-- scontrino
+			Select
+				  @sECR_Serial = DocEcrSerial
+				, @sECR_DocNumEcr = DocNumEcr
+				, @sECR_DocZNumEcr = DocZNumEcr
+				, @sECR_DocNumDOC = DocNum
+				, @tECR_DocDta = DocDta
+			From dbo.[PosDoc]
+			Where Uniq = @iUniqFrom
+
+			Set @sECR_DocID = Left(
+				IsNull(@sECR_Serial, '')
+				+ Case When IsNull(@sECR_DocZNumEcr, '') <> '' Then '-' + @sECR_DocZNumEcr Else '' End
+				+ '-' + IsNull(@sECR_DocNumEcr, '')
+				+ '-' + dbo.[udfDate_ISO](@tECR_DocDta, 1)
+				+ ' (' + IsNull(@sECR_DocNumDOC, '') + ')'
+				, 60)
+
+			--TipoDato (Max 10):  NUMERO SCONTRINO”
+			--RiferimentoTesto (max 60): identificativo alfanumerico
+			--RiferimentoNumero (4-21): numero scontrino
+			--RiferimentoData: data scontrino.
+			Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+			Insert [#TAGs](TagText) Values('<TipoDato>SCONTRINO</TipoDato>')
+			Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + @sECR_DocID + '</RiferimentoTesto>')
+			Insert [#TAGs](TagText) Values('<RiferimentoNumero>' + Right('000000' + IsNull(@sECR_DocNumEcr, ''), 6) + '.00</RiferimentoNumero>')
+			Insert [#TAGs](TagText) Values('<RiferimentoData>' + dbo.[udfFepa_XML_date](@tECR_DocDta) + '</RiferimentoData>')
+			Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		End
+
+		-- ----------------------------------------------------------
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+		-- ----------------------------------------------------------
+
+		-- ======================================================================================
+		If (@bLinOmg = 1) And (@dTotPrz2 <> 0)
+		Begin
+			Set @iRow += 1
+			Set @sRow = Cast(@iRow As varchar(8))
+			Set @dValue = @dTotPrz2
+
+			Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+			Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+			Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+			Insert [#TAGs](TagText) Values('<CodiceTipo>OM</CodiceTipo>')
+			Insert [#TAGs](TagText) Values('<CodiceValore>.OM</CodiceValore>')
+			Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+			Insert [#TAGs](TagText) Values('<Descrizione>Deduzione OMAGGIO</Descrizione>')
+			-- Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+			Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](-@dValue, 0, 0) + '</PrezzoUnitario>')
+			Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](-@dValue, 0, 0) + '</PrezzoTotale>')
+			Insert [#TAGs](TagText) Values('<AliquotaIVA>0.00</AliquotaIVA>')
+			Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE_FC + '</Natura>') -- Ex N1
+			Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+		End
+		-- ======================================================================================
+
+		Fetch Next From [cCursor] Into
+					  @bLinOmg
+					, @sPrdCod, @sPrdParams, @sPrdDes, @sPrdUm, @dPrdQta
+					, @dPrdPrz, @sPrdSc, @dPrdPrz2, @dPrdAdd, @dTotPrz2
+					, @sIvaCod, @dIvaAlq, @iIvaType, @sIVA_T_AE
+					, @iPrdUso
+					, @iDocTipFrom, @iUniqFrom, @iUniqLinFrom
+					, @sPRD_Info1, @sPRD_Tab1
+	End
+	Close [cCursor]
+	Deallocate [cCursor]
+
+	--
+	-- RIGHE AGGIUNTIVE per spese accessorie
+	--
+	If IsNull(@dDOC_SpTra, 0) <> 0
+	Begin
+		Set @iDocElm = 6
+		Set @dValue = @dDOC_SpTra
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Set @sIvaCod = ''
+		Select @sIvaCod = IvaCod
+		From dbo.[udfRC_RegMod_DocElm](@sDOC_CntRegMod, @iDocElm)
+
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		If @sIvaCod <> ''
+			Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		Else
+		Begin
+			Set @sIvaCod = @sIvaCod_TOP
+			Set @dIvaAlq = @dIvaAlq_TOP
+		End
+
+		Set @sIVA_T_AE = dbo.[udfAEComCodes_iva](@sIvaCod)
+		-- --------------------------------------------
+ 		Update @tbIVA Set
+			IvaBaseAC = IsNull(IvaBaseAC, 0) + @dValue
+		Where IvaCod = @sIvaCod
+		-- --------------------------------------------
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>[AC]</CodiceTipo>')
+		Insert [#TAGs](TagText) Values('<CodiceValore>.AC</CodiceValore>')
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+		Insert [#TAGs](TagText) Values('<Descrizione>Spese trasporto</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+	End -- @dDOC_SpTra <> 0
+
+	If IsNull(@dDOC_SpRiba, 0) <> 0
+	Begin
+		Set @iDocElm = 7
+		Set @dValue = @dDOC_SpRiba
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Set @sIvaCod = ''
+		Select @sIvaCod = IvaCod
+		From dbo.[udfRC_RegMod_DocElm](@sDOC_CntRegMod, @iDocElm)
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		If @sIvaCod <> ''
+			Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		Else
+		Begin
+			Set @sIvaCod = @sIvaCod_TOP
+			Set @dIvaAlq = @dIvaAlq_TOP
+		End
+
+		Set @sIVA_T_AE = dbo.[udfAEComCodes_iva](@sIvaCod)
+		-- --------------------------------------------
+ 		Update @tbIVA Set
+			IvaBaseAC = IsNull(IvaBaseAC, 0) + @dValue
+		Where IvaCod = @sIvaCod
+		-- --------------------------------------------
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>[AC]</CodiceTipo>')
+		Insert [#TAGs](TagText) Values('<CodiceValore>.AC</CodiceValore>')
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+		Insert [#TAGs](TagText) Values('<Descrizione>Spese bancarie</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+	End -- @dDOC_SpRiba <> 0
+
+	If IsNull(@dDOC_SpBolli, 0) <> 0
+	Begin
+		Set @iDocElm = 8
+		Set @dValue = @dDOC_SpBolli
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Set @sIvaCod = ''
+		Select @sIvaCod = IvaCod
+		From dbo.[udfRC_RegMod_DocElm](@sDOC_CntRegMod, @iDocElm)
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		If @sIvaCod <> ''
+			Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		Else
+		Begin
+			Set @sIvaCod = @sIvaCod_TOP
+			Set @dIvaAlq = @dIvaAlq_TOP
+		End
+
+		Set @sIVA_T_AE = dbo.[udfAEComCodes_iva](@sIvaCod)
+		-- --------------------------------------------
+ 		Update @tbIVA Set
+			IvaBaseAC = IsNull(IvaBaseAC, 0) + @dValue
+		Where IvaCod = @sIvaCod
+		-- --------------------------------------------
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>[AC]</CodiceTipo>')
+		Insert [#TAGs](TagText) Values('<CodiceValore>.AC</CodiceValore>')
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+		Insert [#TAGs](TagText) Values('<Descrizione>Spese per bolli</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+	End -- @dDOC_SpBolli <> 0
+
+	If IsNull(@dDOC_SpVarie, 0) <> 0
+	Begin
+		Set @iDocElm = 9
+		Set @dValue = @dDOC_SpVarie
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Set @sIvaCod = ''
+		Select @sIvaCod = IvaCod
+		From dbo.[udfRC_RegMod_DocElm](@sDOC_CntRegMod, @iDocElm)
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		If @sIvaCod <> ''
+			Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		Else
+		Begin
+			Set @sIvaCod = @sIvaCod_TOP
+			Set @dIvaAlq = @dIvaAlq_TOP
+		End
+
+		Set @sIVA_T_AE = dbo.[udfAEComCodes_iva](@sIvaCod)
+		-- --------------------------------------------
+ 		Update @tbIVA Set
+			IvaBaseAC = IsNull(IvaBaseAC, 0) + @dValue
+		Where IvaCod = @sIvaCod
+		-- --------------------------------------------
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>[AC]</CodiceTipo>')
+		Insert [#TAGs](TagText) Values('<CodiceValore>.AC</CodiceValore>')
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+		Insert [#TAGs](TagText) Values('<Descrizione>Spese varie</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+	End -- @dDOC_SpVarie
+
+	If IsNull(@dDOC_SpImballo, 0) <> 0
+	Begin
+		Set @iDocElm = 10
+		Set @dValue = @dDOC_SpImballo
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Set @sIvaCod = ''
+		Select @sIvaCod = IvaCod
+		From dbo.[udfRC_RegMod_DocElm](@sDOC_CntRegMod, @iDocElm)
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		If @sIvaCod <> ''
+			Set @dIvaAlq = dbo.[udfIvaCod_ALQ](@sIvaCod)
+		Else
+		Begin
+			Set @sIvaCod = @sIvaCod_TOP
+			Set @dIvaAlq = @dIvaAlq_TOP
+		End
+
+		Set @sIVA_T_AE = dbo.[udfAEComCodes_iva](@sIvaCod)
+		-- --------------------------------------------
+ 		Update @tbIVA Set
+			IvaBaseAC = IsNull(IvaBaseAC, 0) + @dValue
+		Where IvaCod = @sIvaCod
+		-- --------------------------------------------
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>[AC]</CodiceTipo>')
+		Insert [#TAGs](TagText) Values('<CodiceValore>.AC</CodiceValore>')
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+		Insert [#TAGs](TagText) Values('<Descrizione>Spese imballo</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+	End -- @dDOC_SpImballo
+	
+	
+	
+	--
+	-- RIGHE AGGIUNTIVE per lettera intento
+	--
+
+	declare @ExpProtADE as varchar(32)
+	declare @ExpDataADE as date
+	declare @slista varchar(max)=dbo.[udfRpt_DocCntInfo_buildFE](15,	@iDocUniq,'INTENTO')
+
+
+
+	Declare cCursor_INTENTO Cursor LOCAL FAST_FORWARD For
+
+	SELECT distinct ExpProtADE, ExpDataADE
+	FROM dbo.MixAnaExport
+	where ExpDicID in (select convert(int,Token) FROM dbo.udfStrSplit(@slista,',') where convert(int,Token)<>0 )
+	Open cCursor_INTENTO
+	Fetch Next From cCursor_INTENTO Into @ExpProtADE,@ExpDataADE
+	While (@@Fetch_Status <> -1)
+	Begin
+		Set @iRow += 1
+		Set @sRow = Cast(@iRow As varchar(8))
+
+		Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+		Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+		Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+		Insert [#TAGs](TagText) Values('<CodiceTipo>[INTENTO]</CodiceTipo>')
+		Insert [#TAGs](TagText) Values('<CodiceValore>.INTENTO</CodiceValore>')
+		Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+		Insert [#TAGs](TagText) Values('<Descrizione>Lettera Intento</Descrizione>')
+		Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+		Insert [#TAGs](TagText) Values('<PrezzoUnitario>0.00</PrezzoUnitario>')
+		Insert [#TAGs](TagText) Values('<PrezzoTotale>0.00</PrezzoTotale>')
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>0.00</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>N3.5</Natura>')
+		Insert [#TAGs](TagText) Values('<AltriDatiGestionali>')
+		Insert [#TAGs](TagText) Values('<TipoDato>INTENTO</TipoDato>')
+		Insert [#TAGs](TagText) Values('<RiferimentoTesto>' + isnull(@ExpProtADE,'')+ '</RiferimentoTesto>')
+		Insert [#TAGs](TagText) Values('<RiferimentoData>' +  dbo.udfFepa_XML_date(@ExpDataADE) + '</RiferimentoData>')
+		Insert [#TAGs](TagText) Values('</AltriDatiGestionali>')
+		Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+
+
+		-- ----------------------------------------------------------
+		Fetch Next From cCursor_INTENTO Into @ExpProtADE,@ExpDataADE
+	End
+	Close cCursor_INTENTO
+	Deallocate cCursor_INTENTO
+
+	--------------------------------------------------------------------------------
+	
+
+	--
+	-- RIGHE AGGIUNTIVE per sconti su totale
+	--
+	-- @dDOC_DocSconti
+	--
+	If IsNull(@dDOC_DocSconti, 0) <> 0
+	Begin
+		Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+		Select
+			  TT.ItemCod As IvaCod
+			, TT.ItemIvaAlq As IvaAlq
+			, IsNull(TT.ItemValueAnteSCT, 0) - IsNull(TT.ItemValue, 0) As SctValue
+			, TAB.ItemAE
+		From dbo.[udfDD_Total_calc](@iSession, @iDOC_DocTip, @iDocUniq) TT
+		Left Join dbo.[IvaTab] TAB On TAB.ItemID = TT.ItemCod
+		Where TT.ItemID = 10
+		Order By TT.ItemIvaAlq DESC
+
+		Open [cCursor]
+		Fetch Next From [cCursor] Into @sIvaCod, @dIvaAlq, @dValue, @sIVA_T_AE
+		While (@@Fetch_Status <> -1)
+		Begin
+			Set @iRow += 1
+			Set @sRow = Cast(@iRow As varchar(8))
+			Set @dValue = -IsNull(@dValue, 0)
+			Set @sIvaCod = IsNull(@sIvaCod, '')
+			Set @dIvaAlq = IsNull(@dIvaAlq, 0)
+
+			If (@sIVA_T_AE = '') And (@dIvaAlq = 0)
+				Set @sIVA_T_AE = @sIVA_T_AE_FC
+
+			Insert [#TAGs](TagText) Values('<DettaglioLinee>')
+			Insert [#TAGs](TagText) Values('<NumeroLinea>' + @sRow + '</NumeroLinea>')
+			Insert [#TAGs](TagText) Values('<CodiceArticolo>')
+			Insert [#TAGs](TagText) Values('<CodiceTipo>[SC]</CodiceTipo>')
+			Insert [#TAGs](TagText) Values('<CodiceValore>.SC</CodiceValore>')
+			Insert [#TAGs](TagText) Values('</CodiceArticolo>')
+
+			Insert [#TAGs](TagText) Values('<Descrizione>Sconto sul totale merce/servizi</Descrizione>')
+			Insert [#TAGs](TagText) Values('<Quantita>1.00</Quantita>')
+			Insert [#TAGs](TagText) Values('<PrezzoUnitario>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoUnitario>')
+			Insert [#TAGs](TagText) Values('<PrezzoTotale>' + dbo.[udfFepa_XML_value](@dValue, 0, @iDOC_DocTip) + '</PrezzoTotale>')
+			Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+			Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+			Insert [#TAGs](TagText) Values('</DettaglioLinee>')
+
+			-- ----------------------------------------------------------
+			Fetch Next From [cCursor] Into @sIvaCod, @dIvaAlq, @dValue, @sIVA_T_AE
+		End
+		Close [cCursor]
+		Deallocate [cCursor]
+	End -- @dDOC_DocSconti <> 0
+END -- @iCountLIN > 0
+
+--
+-- dati riepilogativi IVA
+--
+If @iCountIVA > 0
+BEGIN
+	Declare @iIvaID int
+	-- Declare @sIvaID varchar(8)
+	Declare @dIvaBase decimal(19, 2)
+	Declare @dIvaBaseAC decimal(19, 2)
+	Declare @sIvaDes varchar(64)
+	Declare @sIvaItemRule nvarchar(128)
+	Declare @sIvaNorma nvarchar(128)
+	Declare @dIvaValue decimal(19, 2)
+
+	If @iPagTabIva = 3 -- split payment
+		Set @sANA_FepaEsgIva = 'S'
+
+	Set @sANA_FepaEsgIva = IsNull(@sANA_FepaEsgIva, '')
+	If @sANA_FepaEsgIva = ''
+		Set @sANA_FepaEsgIva = 'I'
+
+	Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+	Select IVA.IvaID, IVA.IvaBase, IVA.IvaBaseAC, IVA.IvaCod, IVA.IvaDes, TAB.ItemRule, IVA.IvaAlq, IVA.IvaValue, TAB.ItemAE
+	From @tbIVA IVA
+	Left Join dbo.[IvaTab] TAB On TAB.ItemID = IVA.IvaCod
+	Order By IVA.IvaID
+
+	Open [cCursor]
+	Fetch Next From [cCursor] Into @iIvaID, @dIvaBase, @dIvaBaseAC, @sIvaCod, @sIvaDes, @sIvaItemRule, @dIvaAlq, @dIvaValue, @sIVA_T_AE
+	While (@@Fetch_Status <> -1)
+	Begin
+		-- Set @sIvaID = Cast(@iIvaID As varchar(8))
+		Set @sIvaCod = IsNull(@sIvaCod, '')
+		Set @sIVA_T_AE = IsNull(@sIVA_T_AE, '')
+
+		Set @sIvaNorma = ''
+		If @sIVA_T_AE <> ''
+			Set @sIvaNorma = Case When IsNull(@sIvaItemRule, '') <> '' Then @sIvaItemRule Else @sIvaDes End
+
+		If (@sIVA_T_AE = '') And (@dIvaAlq = 0)
+			Set @sIVA_T_AE = @sIVA_T_AE_FC
+
+		If @sANA_FepaEsgIva = 'S'
+			Set @sIvaNorma = 'Ex Art. 17-ter DPR 633/72'
+
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('<DatiRiepilogo>')
+		-- **************************************************************
+
+		Insert [#TAGs](TagText) Values('<AliquotaIVA>' + dbo.[udfFepa_XML_value](@dIvaAlq, 0, 0) + '</AliquotaIVA>')
+		Insert [#TAGs](TagText) Values('<Natura>' + @sIVA_T_AE + '</Natura>')
+
+		If IsNull(@dIvaBaseAC, 0) <> 0
+			Insert [#TAGs](TagText) Values('<SpeseAccessorie>' + dbo.[udfFepa_XML_value](@dIvaBaseAC, 0, @iDOC_DocTip) + '</SpeseAccessorie>')
+
+		-- Insert [#TAGs](TagText) Values('<Arrotondamento></Arrotondamento>')
+		Insert [#TAGs](TagText) Values('<ImponibileImporto>' + dbo.[udfFepa_XML_value](@dIvaBase, 0, @iDOC_DocTip) + '</ImponibileImporto>')
+		Insert [#TAGs](TagText) Values('<Imposta>' + dbo.[udfFepa_XML_value](@dIvaValue, 0, @iDOC_DocTip) + '</Imposta>')
+
+		If @dIvaValue <> 0
+		Begin
+			Insert [#TAGs](TagText) Values('<EsigibilitaIVA>' + @sANA_FepaEsgIva + '</EsigibilitaIVA>')
+		End
+
+		If @sIvaNorma <> ''
+			Insert [#TAGs](TagText) Values('<RiferimentoNormativo>' + @sIvaNorma + '</RiferimentoNormativo>')
+
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('</DatiRiepilogo>')
+		-- **************************************************************
+
+		-- ----------------------------------------------------------
+		Fetch Next From [cCursor] Into @iIvaID, @dIvaBase, @dIvaBaseAC, @sIvaCod, @sIvaDes, @sIvaItemRule, @dIvaAlq, @dIvaValue, @sIVA_T_AE
+	End
+	Close [cCursor]
+	Deallocate [cCursor]
+END -- @iCountIVA > 0
+
+-- **************************************************************
+Insert [#TAGs](TagText) Values('</DatiBeniServizi>')
+-- **************************************************************
+
+
+-- <DatiVeicoli>
+--		<Data></Data>
+--		<TotalePercorso></TotalePercorso>
+-- </DatiVeicoli>
+
+--
+-- Pagamento
+--
+If @iCountPAY > 0
+BEGIN
+	Declare @iPayNumber tinyint
+	-- Declare @sPayNumber varchar(8)
+	Declare @iPayType tinyint
+	Declare @tPayDate date
+	Declare @dPayValue decimal(9, 2)
+
+	-- **************************************************************
+	Insert [#TAGs](TagText) Values('<DatiPagamento>')
+	-- **************************************************************
+
+	Insert [#TAGs](TagText) Values('<CondizioniPagamento>' + @sPAY_T_AE + '</CondizioniPagamento>')
+	-- “TP01” pagamento a rate, “TP02” pagamento totale in unica soluzione, “TP03” pagamento di un anticipo.
+
+	Declare [cCursor] Cursor LOCAL FAST_FORWARD For
+	Select PAY.PayNumber, PAY.PayType, PAY.PayDate, PAY.PayValue
+	From @tbPAY PAY
+	Order By PAY.PayNumber
+
+	Open [cCursor]
+	Fetch Next From [cCursor] Into @iPayNumber, @iPayType, @tPayDate, @dPayValue
+	While (@@Fetch_Status <> -1)
+	Begin
+		-- Set @sPayNumber = Cast(@iPayNumber As varchar(8))
+
+		Set @iPayType = IsNull(@iPayType, 0)
+		Set @sPAY_M_AE = Case
+			When @iPayType =  0 Then 'MP02' -- assegno
+			When @iPayType =  1 Then 'MP08' -- carta di pagamento
+			When @iPayType =  2 Then 'MP01' -- contanti
+			When @iPayType =  3 Then 'MP03' -- assegno circolare
+			When @iPayType =  4 Then 'MP04' -- contanti presso tesoreria
+			When @iPayType = 10 Then 'MP05' -- Bonifico bancario
+			When @iPayType = 12 Then 'MP07' -- Bollettino bancario
+			When @iPayType = 13 Then 'MP18' -- Bollettino postale
+			When @iPayType = 14 Then 'MP13' -- Bollettino MAV
+
+			When @iPayType = 20 Then 'MP12' -- Ricevuta bancaria
+			When @iPayType = 22 Then 'MP16' -- Domiciliazione bancaria
+			When @iPayType = 23 Then 'MP17' -- Domiciliazione postale
+			When @iPayType = 24 Then 'MP09' -- Addebito diretto RID
+			When @iPayType = 25 Then 'MP19' -- Addebito diretto SEPA
+
+			When @iPayType = 30 Then 'MP06' -- Effetto bancario
+			When @iPayType = 31 Then 'MP06' -- Vaglia cambiario
+			Else 'MP05'
+			End
+
+		-- Fattorie Piemonte - Inizio
+		If (@iDOC_AnaType = 1) And (@sDOC_AnaCod = '00104') And (@sPAY_M_AE = 'MP02') And (@iPayType <> 30)
+			Set @sPAY_M_AE = 'MP01'
+		-- Fattorie Piemonte - Fine
+
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('<DettaglioPagamento>')
+		-- **************************************************************
+
+		-- <Beneficiario></Beneficiario>
+		Insert [#TAGs](TagText) Values('<ModalitaPagamento>' + @sPAY_M_AE + '</ModalitaPagamento>')
+
+		-- <DataRiferimentoTerminiPagamento></DataRiferimentoTerminiPagamento>
+		Insert [#TAGs](TagText) Values('<DataRiferimentoTerminiPagamento>' + dbo.[udfFepa_XML_date](@tDOC_PagStart) + '</DataRiferimentoTerminiPagamento>')
+		-- <GiorniTerminiPagamento></GiorniTerminiPagamento>
+
+		Insert [#TAGs](TagText) Values('<DataScadenzaPagamento>' + dbo.[udfFepa_XML_date](@tPayDate) + '</DataScadenzaPagamento>')
+		Insert [#TAGs](TagText) Values('<ImportoPagamento>' + dbo.[udfFepa_XML_value](@dPayValue, 0, @iDOC_DocTip) + '</ImportoPagamento>')
+
+		-- <CodUfficioPostale></CodUfficioPostale>
+		-- <CognomeQuietanzante></CognomeQuietanzante>
+		-- <NomeQuietanzante></NomeQuietanzante>
+		-- <CFQuietanzante></CFQuietanzante>
+		-- <TitoloQuietanzante></TitoloQuietanzante>
+		-- <IstitutoFinanziario></IstitutoFinanziario>')
+
+		If IsNull(@sPAY_BanIBAN, '') <> ''
+			Insert [#TAGs](TagText) Values('<IBAN>' + Replace(@sPAY_BanIBAN, ' ', '') + '</IBAN>')
+
+		If @sANA_FepaDest <> 'XXXXXXX'
+		Begin
+			-- esclusi clienti esteri
+			If IsNull(@sPAY_BanABI, '') <> ''
+				Insert [#TAGs](TagText) Values('<ABI>' + @sPAY_BanABI + '</ABI>')
+
+			If IsNull(@sPAY_BanCAB, '') <> ''
+				Insert [#TAGs](TagText) Values('<CAB>' + @sPAY_BanCAB + '</CAB>')
+		End
+
+		If IsNull(@sPAY_BanBIC, '') <> ''
+			Insert [#TAGs](TagText) Values('<BIC>' + @sPAY_BanBIC + '</BIC>')
+
+		-- <ScontoPagamentoAnticipato></ScontoPagamentoAnticipato>
+		-- <DataLimitePagamentoAnticipato></DataLimitePagamentoAnticipato>
+		-- <PenalitaPagamentiRitardati></PenalitaPagamentiRitardati>
+		-- <DataDecorrenzaPenale></DataDecorrenzaPenale>
+		-- <CodicePagamento></CodicePagamento>
+
+		-- **************************************************************
+		Insert [#TAGs](TagText) Values('</DettaglioPagamento>')
+		-- **************************************************************
+		-- ----------------------------------------------------------
+		Fetch Next From [cCursor] Into @iPayNumber, @iPayType, @tPayDate, @dPayValue
+	End
+	Close [cCursor]
+	Deallocate [cCursor]
+
+	-- **************************************************************
+	Insert [#TAGs](TagText) Values('</DatiPagamento>')
+	-- **************************************************************
+END -- @iCountPAY > 0
+
+-- =============================================================
+-- /BODY
+Insert [#TAGs](TagText) Values('</FatturaElettronicaBody>')
+
+-- =============================================================
+-- /ROOT
+Insert [#TAGs](TagText) Values('</p:FatturaElettronica>')
+
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- DEBUG
+-- Select * From [#TAGs] Order By TagRowID
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+-- =============================================================
+-- XML
+--
+
+Select @sDocFileXML =  @sDocFileXML
+	+ IsNull(TagText, '')
+From [#TAGs]
+Where (IsNull(TagText, '') Not Like '%></%')
+Order By TagRowID
+
+Set @sDocFileXML = dbo.[udfStrTrimX](@sDocFileXML)
+
+-- =============================================================
+DROP TABLE [#TAGs]
+-- =============================================================
+
+-- =============================================================
+-- inserimento in FepaDoc
+--
+Insert dbo.[FepaDoc](
+	  DocUniq
+	, FepaType
+	, FepaDate
+	, Status
+	, StatusWhen
+	, StatusMessage
+	, ZipSaved
+	, DocYear
+	, DocMonth
+	, DocTip
+	, DocNum
+	, DocDta
+	, AnaType
+	, AnaCod
+	, AnaNom
+	, DocFileName
+	, DocFileXML
+	, RecDate
+	)
+Values(
+	  @iDocUniq
+	, @sANA_FepaType
+	, NULL
+	, 0
+	, @tDateTime
+	, Case When IsNull(@sError, '') <> '' Then @sError Else NULL End
+	, 0
+	, Year(@tDOC_DocDta)
+	, Month(@tDOC_DocDta)
+	, @iDOC_DocTip
+	, @sDOC_DocNum
+	, @tDOC_DocDta
+	, @iDOC_AnaType
+	, @sDOC_AnaCod
+	, (Select TOP 1 LTrim(RTrim(Left(ItemDes, 128))) From dbo.[MixAna] Where ItemID = @sDOC_AnaCod And ItemType = @iDOC_AnaType)
+	, @sDocFileName
+	, @sDocFileXML
+	, @tDate
+	)
+
+-- =============================================================
+-- OPERAZIONI POST GENERAZIONE XML
+--
+Execute dbo.[uspFepaDoc_xml_OnBuilt] 0, @iDocUniq
+-- Validazione XML (chiamata Web Service)
+--
+Execute dbo.[uspFepaXML_validate_run] @iSession, @iDocUniq
+
+-- =============================================================
+-- DEBUG
+--Select @sANA_FepaDest
+-- select @sDocFileXML As DocFileXML
+-- =============================================================
