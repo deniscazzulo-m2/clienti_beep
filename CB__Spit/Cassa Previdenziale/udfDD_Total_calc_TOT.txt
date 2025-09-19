@@ -1,0 +1,345 @@
+/*
+*
+*	Di supporto per udfDD_Total_calc
+*
+*	Totalizza importi da documento
+*
+*/
+CREATE FUNCTION [dbo].[udfDD_Total_calc_TOT]
+(
+	@iSession int,
+	@iDocTip tinyint,
+	@iUniqDoc int
+)
+RETURNS @tbData TABLE(
+	[CntRegMod] varchar(8) NULL,
+	[NumPrefix] varchar(8) NULL,
+	[NumSuffix] varchar(8) NULL,
+	[Divisa] varchar(8) NULL,
+	[Cambio] decimal(19, 6) NULL,
+	[DocIvaCod] varchar(8) NULL,
+	[SctTot] decimal(19, 2) NULL,
+	[SctPag] decimal(19, 2) NULL,
+	[SpTra] decimal(19, 2) NULL,
+	[SpRiba] decimal(19, 2) NULL,
+	[SpBolli] decimal(19, 2) NULL,
+	[SpVarie] decimal(19, 2) NULL,
+	[SpImballo] decimal(19, 2) NULL,
+	[VetComp] decimal(19, 2) NULL,
+	[CaPre] decimal(9, 2) NULL,
+
+	[TotMerce] decimal(19, 2) NULL,
+	[TotPrv] decimal(19, 2) NULL,
+	[TotOmg] decimal(19, 2) NULL,
+	[TotOmgIVA] decimal(19, 2) NULL
+)
+AS
+BEGIN
+Declare @sTableID varchar(64) = dbo.[udfDocTip_TableID](@iDocTip)
+
+Declare @dTotMerce decimal(19, 2) = 0
+Declare @dTotPrv decimal(19, 2) = 0
+Declare @dPrvFix decimal(9, 2) = 0
+Declare @dTotOmg decimal(19, 2) = 0
+Declare @dTotOmgIVA decimal(19, 2) = 0
+
+If @sTableID = 'CliOff'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+	From dbo.[CliOff] A Left Join dbo.[CliOffEx_Pers] B 
+		On A.Uniq = B.Uniq
+	Where A.Uniq = @iUniqDoc
+	
+	Select Top 1
+		@dPrvFix = IsNull(PrvFix, 0)
+	From dbo.[CliOff]
+	Where Uniq = @iUniqDoc	
+	
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0)),
+		@dTotPrv = Sum(IsNull(TotPrz2, 0) * Case When @dPrvFix <> 0 Then @dPrvFix Else IsNull(PrvAlq, 0) End / 100.00)
+	From dbo.[CliOffLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[CliOffLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1
+End
+
+Else If @sTableID = 'CliOrd'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+	From dbo.[CliOrd] A Left Join dbo.[CliOrdEx_Pers] B 
+		On A.Uniq = B.Uniq
+	Where A.Uniq = @iUniqDoc
+	
+	Select Top 1
+		@dPrvFix = IsNull(PrvFix, 0)
+	From dbo.[CliOrd]
+	Where Uniq = @iUniqDoc	
+	
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0)),
+		@dTotPrv = Sum(IsNull(TotPrz2, 0) * Case When @dPrvFix <> 0 Then @dPrvFix Else IsNull(PrvAlq, 0) End / 100.00)
+	From dbo.[CliOrdLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[CliOrdLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1
+End
+
+Else If @sTableID = 'CliDoc'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+	From dbo.[CliDoc] A Left Join dbo.[CliDocEx_Pers] B 
+		On A.Uniq = B.Uniq
+	Where A.Uniq = @iUniqDoc
+	
+	Select Top 1
+		@dPrvFix = IsNull(PrvFix, 0)
+	From dbo.[CliDoc]
+	Where Uniq = @iUniqDoc	
+	
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0)),
+		@dTotPrv = Sum(IsNull(TotPrz2, 0) * Case When @dPrvFix <> 0 Then @dPrvFix Else IsNull(PrvAlq, 0) End / 100.00)
+	From dbo.[CliDocLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[CliDocLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1
+End
+
+Else If @sTableID = 'ForOff'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		NULL
+	From dbo.[ForOff]
+	Where Uniq = @iUniqDoc
+	
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0))
+	From dbo.[ForOffLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[ForOffLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1
+End
+
+Else If @sTableID = 'ForOrd'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		NULL
+	From dbo.[ForOrd]
+	Where Uniq = @iUniqDoc
+	
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0))
+	From dbo.[ForOrdLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[ForOrdLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1	
+End
+
+Else If @sTableID = 'ForDoc'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		NULL
+	From dbo.[ForDoc]
+	Where Uniq = @iUniqDoc
+
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0))
+	From dbo.[ForDocLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[ForDocLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1
+End
+
+Else If @sTableID = 'BasketDoc'
+Begin
+	Insert @tbData(
+		CntRegMod,
+		NumPrefix,
+		NumSuffix,
+		Divisa,	Cambio,	DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		CaPre
+		)
+	Select TOP 1
+		CntRegMod,
+		dbo.[udfDocNum_split](1, DocNum) As NumPrefix,
+		dbo.[udfDocNum_split](2, DocNum) As NumSuffix,
+		Divisa,	Cambio, DocIvaCod,
+		SctTot,	SctPag,
+		SpTra, SpRiba, SpBolli, SpVarie, SpImballo,
+		VetComp,
+		NULL
+	From dbo.[BasketDoc]
+	Where Uniq = @iUniqDoc
+	
+	Select
+		@dTotMerce = Sum(IsNull(TotPrz2, 0))
+	From dbo.[BasketDocLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 0
+
+	Select
+		@dTotOmg = Sum(IsNull(TotPrz2, 0)),
+		@dTotOmgIVA = Sum(IsNull(TotPrz2, 0) * IsNull(IvaAlq, 0) / 100.00)
+	From dbo.[BasketDocLin]
+	Where UniqDoc = @iUniqDoc
+		And IsNull(LinOmg, 0) = 1	
+End
+
+-- ------------------------------------------------------------------
+If dbo.[udfEnvironRead_bit]('5006') = 1
+	Set @dTotOmg = IsNull(@dTotOmg, 0) + IsNull(@dTotOmgIVA, 0)
+-- ------------------------------------------------------------------
+
+Update @tbData Set
+	TotMerce = @dTotMerce,
+	TotPrv = @dTotPrv,
+	TotOmg = @dTotOmg
+
+-- ------------------------------------------------------------------
+	RETURN
+END

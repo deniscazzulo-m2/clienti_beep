@@ -1,0 +1,73 @@
+Creata cartella CUSTOM/tmpExtraction
+
+Creato file CUSTOM/filecopy.bat ->
+@echo off
+copy /Y "%~1" "%~2"
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+Modulo PrdPrzListPromo Indice 0 ->
+
+PERS : 1
+
+Intestazione Grid :
+(3)[Import1.ico]CLICK QUI per importare i prezzi da file. ATTENZIONE: eventuali precedenti promozioni con !IMPORT scritto nelle annotazioni verranno eliminate.
+
+Script Eventi:
+[...]
+<headclick>
+<![CDATA[
+Dim bOk = True
+Dim sSql$ = ""
+Dim sFilePath$ = ""
+Dim sCmd$ = ""
+Dim sExtractionRes$ = ""
+Dim iElabNumber =  DbRead("Select DateDiff(second, '1970-01-01', GetDate()) 'Res'")
+'Dim sFileCopyPath$ = "\\SRV-PROMOSER\BEEP\CUSTOM\filecopy.bat"
+Dim sFileCopyPath$ = "C:\RIPRISTINO-BEEP\promoser\CUSTOM\filecopy.bat"
+Dim iSession = AppInfoGet("Session")
+
+MouseWait(True)
+If bOk Then
+	bOk = (DbRead("Select Top 1 1 From [MixTab] Where TabID = 'CliCat'") = 1)
+	If bOk = False Then
+		MsgBox "Errore! Nessuna categoria cliente nella tabella categorie clienti"
+	EndIf
+EndIf
+
+If bOk Then
+	sFilePath$ = FileOpen("", "", "File CSV (*.csv)|*.csv", "")
+	bOk = (Len(sFilePath$) > 0)
+	If bOk = False Then
+		MsgBox "Errore! Nessun file CSV selezionato"
+	EndIf
+EndIf
+
+If bOk Then
+	sSql$ = "Select dbo.[udfPrepareFileCopy_Pers] ('" & sFilePath$ & "', " & iElabNumber.ToString() & ")"
+	sCmd$ = DbRead(sSql$)
+	bOk = RunProcess(sFileCopyPath$, sCmd$, 3, True)
+	
+	If bOk = False Then
+		MsgBox "Errore! La copia del file nella cartella di lavoro non è andata a buon fine. Verificare connessione di rete e accensione del server"
+	EndIf
+EndIf
+
+If bOk Then
+	'sSql$ = "dbo.[uspLaunchCsvExtractor_Pers] " + iSession + ", 'D:\\BEEP\CUSTOM\tmpExtraction\" & iElabNumber.ToString() & ".csv'"
+	sSql$ = "dbo.[uspLaunchCsvExtractor_Pers] " + iSession + ", 'C:\RIPRISTINO-BEEP\promoser\CUSTOM\tmpExtraction\" & iElabNumber.ToString() & ".csv'"
+	bOk = DbExecute(sSql$)
+	
+	If bOk = False Then
+		MsgBox "Errore! L'estrazione non è andata a buon fine. Verificare connessione di rete e file CSV(" & sFilePath$ & ")"
+	EndIf
+EndIf
+
+If bOk Then
+	DataRefresh(0, False, 0)
+EndIf
+
+MouseWait(False)
+]]>
+</headclick>
+[...]

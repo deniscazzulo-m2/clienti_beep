@@ -1,0 +1,77 @@
+PERSONALIZZAZIONI INERENTI:
+
+PrdAna{0} Indice 16 -> 
+	Popola dbo.[PrdAddLink_Prz] -> Supplementi collegati
+
+docOC{0} Indice 0 Evento Campo prdparams ButtonClick -> 
+	Somma ParAddTot da dbo.[CliOrdLinPar] e lo assegna a PrdAdd (ma risulta zero)
+
+PrdForm{0} Indice 1 -> 
+	Informa solo che  I primi 3 parametri devono essere rispettivamente: Larghezza (A), Altezza (B) e Colore (Colore$)
+
+
+
+PrdFormTab{0} Indice 1 -> 
+	Popola dbo.[PrdFormTabLinSupplemento_Pers] -> 
+	Tabella dei supplementi per le opzioni delle tabelle varianti
+
+dbo.[uspPrdFormValues_save_doclin] ->
+	Ricava ParAddTot da dbo.[PrdFormTabLinSupplemento_Pers] e ParAddSconti da dbo.[CliOffLin]
+
+-----------------------------------------------------------------------------------------------------------------------------------
+TABELLE INTERROGATE:
+
+PrdAna
+PrdPrzAna
+IvaTab
+MixAna
+MixAnaSedi
+VndPro
+VndProTst
+PrdForPromo
+PrdForm
+CliOrdLinPar
+[BpDataSystem].dbo.[SystemDocTypes]
+PrdFormLin
+sys_db_sessions
+
+-----------------------------------------------------------------------------------------------------------------------------------
+TESTO TEXTBOX "Tot.Supplem." (Calcolato in PrdAddTotal() richiamato da GoDocLin()):
+
+txtPrdAdd = 
+	Riga1(
+		(
+			ParAddQta1 
+			+ (ParAddQta2 * ParAddQta2X) 
+			+ (txtPrzLst * ParAddUmPc / 100) 
+			+ (ParAddTotMis * txtTm) 
+			+ (ParAddMis1 * (ParValueGet(1, "") / App.EditRapMis))
+		) * (1 - ParAddSconti / 100)
+	) 
+	+... RigaX(
+		(
+			ParAddQta1 
+			+ (ParAddQta2 * ParAddQta2X) 
+			+ (txtPrzLst * ParAddUmPc / 100) 
+			+ (ParAddTotMis * txtTm) 
+			+ (ParAddMis1 * (ParValueGet(1, "") / App.EditRapMis))
+		) * (1 - ParAddSconti / 100)
+	)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

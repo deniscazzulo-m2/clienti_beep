@@ -1,0 +1,57 @@
+Oggetti afflitti:
+udfDD_charge_shipment
+udfDD_Head
+udfDD_Total_calc
+udfDD_Total_calc_TOT
+udfEleMerce_ready_doc_check
+udfPackage_ready_doc_check
+udfVA_New_check_head
+uspAC_OnSave
+uspBasket_goto_run
+uspDataMoveFile_import
+uspDD_build_CntPay
+uspDD_build_CntReg
+uspDD_charge_shipment
+uspDD_charge_shipmentSPV
+uspDD_CntPay
+uspDD_PrvTot_update
+uspDD_Total_list
+uspDD_Total_update
+uspDdtElab_build_FT
+uspDoc_NewFrom
+uspDoc_Save
+uspDocLinStatOC_split
+uspDocPos_build_FT
+uspDocPosElab_build_FT
+uspEleMerce_ready_doc
+uspMaintDoc_FT
+uspMaintWork_DDT
+uspMaintWork_FT
+uspPackage_ready_doc
+uspPrdAdd_updateOF_MM
+uspRC_build_FIV
+uspRC_OnSave
+uspVE_OnSave
+uspWork_OcLin_split
+uspWorkOdp_action
+uspWorkOdp_new
+uspWorkOdp_new_fabb
+uspWorkOdp_new_OCs
+uspWorkOdp_new_out
+
+Oggetti che usano SpTra:
+udfDD_charge_shipment           NO
+udfDD_Head                      OK
+udfDD_Total_calc
+udfDD_Total_calc_TOT
+udfEleMerce_ready_doc_check
+udfPackage_ready_doc_check
+udfVA_New_check_head
+uspBasket_goto_run
+uspDataMoveFile_import
+uspDD_charge_shipment
+uspDD_charge_shipmentSPV
+uspDdtElab_build_FT
+uspDoc_NewFrom
+uspEleMerce_ready_doc
+uspPackage_ready_doc

@@ -1,0 +1,32 @@
+/*
+*
+*
+*
+*/
+CREATE TRIGGER [dbo].[trgPrdFormTab_OnUpdate]
+ON [dbo].[PrdFormTab]
+FOR UPDATE
+AS
+
+Declare @sTabCod1 [varchar](32)
+Declare @sTabCod2 [varchar](32)
+
+SET NOCOUNT ON
+If Update(TabCod)
+	Begin
+		Select @sTabCod1 = TabCod From Deleted
+		Select @sTabCod2 = TabCod From Inserted
+
+		Update dbo.[PrdFormLocTexts] Set
+			ItemName1 = @sTabCod2
+		Where TableID In('PrdFormTab', 'PrdFormTabLin')
+			And ItemName1 = @sTabCod1
+
+		Update dbo.[PrdFormTabLin] Set
+			TabCod = @sTabCod2
+		Where TabCod = @sTabCod1
+
+		Update dbo.[PrdFormTabLinEx_Pers] Set
+			TabCod = @sTabCod2
+		Where TabCod = @sTabCod1
+	End

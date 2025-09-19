@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<XML>
+  <SQLSERVER>
+    <LastUsed>SERVER-LAUDATI\BEEP</LastUsed>
+  </SQLSERVER>
+  <DBMAINT>
+    <DbOffPathList>D:\BEEP\DATABASE</DbOffPathList>
+  </DBMAINT>
+</XML>

@@ -1,0 +1,30 @@
+/*
+*
+*
+*/
+CREATE FUNCTION [dbo].[udfCliOrd_TestoStato_Pers]
+(
+	@sStato varchar(32)
+)
+RETURNS varchar(1024)
+AS
+BEGIN
+Declare @sTesto varchar(64)
+
+If UPPER(@sStato) like 'PREPBOZ%'
+	Set @sTesto = REPLACE(UPPER(@sStato),'PREPBOZ ','')
+Else If UPPER(@sStato) like 'BOZINV%'
+	Set @sTesto = REPLACE(UPPER(@sStato),'BOZINV ','')
+Else If UPPER(@sStato) like 'BOZCONF%' 
+	Set @sTesto = REPLACE(UPPER(@sStato),'BOZCONF ','')
+Else If UPPER(@sStato) like 'LAV%' 
+	Set @sTesto = REPLACE(UPPER(@sStato),'LAV ','')
+Else If UPPER(@sStato) like 'ORDSPED%' 
+	Set @sTesto = REPLACE(UPPER(@sStato),'ORDSPED ','')
+Else If UPPER(@sStato) like 'FOREST%' 
+	Set @sTesto = REPLACE(UPPER(@sStato),'FOREST ','')
+
+Set @sTesto = ISNULL(@sTesto,'')
+
+RETURN @sTesto
+END

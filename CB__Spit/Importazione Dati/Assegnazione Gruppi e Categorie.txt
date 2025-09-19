@@ -1,0 +1,4 @@
+UPDATE [PrdAna] SET 
+[GrpCod] = dbo.udfStrTokenN([PrdCod], 1, '.'),
+[CatCod] = (CASE WHEN [PrdCod] Like '%.%.%' THEN CONCAT(dbo.udfStrTokenN([PrdCod], 1, '.'),'.',dbo.udfStrTokenN([PrdCod], 2, '.')) ELSE NULL END)
+WHERE [PrdCod] Like '%.%'

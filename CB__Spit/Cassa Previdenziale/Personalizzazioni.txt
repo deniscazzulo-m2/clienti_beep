@@ -1,0 +1,1540 @@
+Aggiunte tabelle CliDocEx_Pers, CliOffEx_Pers, CliOrdEx_Pers, DocDefEx_Pers
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 110
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+ScriptOnOpen:
+MouseWait(True)
+Dim iSession = AppInfoGet("Session")
+Dim bChanged = False
+Dim bDone = False
+Dim dTotMerce = 0
+Dim sSQL$
+Dim sDocTip$ = "," & DocTip.ToString() & ","
+
+If AspBeni$ = "" Then
+	sSQL$ = "Select ItemDes From dbo.[MixTab] Where TabID = 'DocAspBeni' And IsNull(ItemDefault, 0) = 1"
+	AspBeni$ = DbRead(sSQL$)
+EndIf
+
+If Imballo$ = "" Then
+	sSQL$ = "Select ItemDes From dbo.[MixTab] Where TabID = 'DocImballo' And IsNull(ItemDefault, 0) = 1"
+	Imballo$ = DbRead(sSQL$)
+EndIf
+
+
+If DbReadNamed("dbo.[uspDD_foot_changed]", iSession, DocTip, Uniq) Then
+	bChanged = DbNamedValue("Changed")	
+	dTotMerce = DbNamedValue("TotMerce")	
+EndIf
+DbNamedClear()
+
+TotMerce = dTotMerce
+TotMerceNetto = dTotMerce - SctTot - SctPag
+
+If bChanged Then
+	Dim sDataValues$ = DialogGridValues()
+
+	SctPagPc = 0
+	SctPag = 0
+	SpTra = 0
+	SpImballo = 0
+	SpVarie = 0
+	SpBolli = 0
+	VetComp = 0
+	
+	If DbReadNamed("dbo.[uspDD_charge_payment]", 1, sDataValues$) Then
+		PagCod$ = DbNamedValue("PagCod")
+		SpRiba = DbNamedValue("SpRiba")
+		SctPagPc = DbNamedValue("SctPagPc")
+	EndIf
+	DbNamedClear()
+
+	SctPag = Round(TotMerce * SctPagPc / 100, 2)
+	TotMerceNetto = TotMerce - SctTot - SctPag
+
+	sDataValues$ = DialogGridValues()
+	If DbReadNamed("dbo.[uspDD_charge_package]", sDataValues$) Then
+		Colli = DbNamedValue("Colli")
+		Peso = DbNamedValue("Peso")
+		PesoNetto = DbNamedValue("PesoNetto")
+		Volume = DbNamedValue("Volume")		
+	EndIf
+	DbNamedClear()
+	
+	sDataValues$ = DialogGridValues()
+	If DbReadNamed("dbo.[uspDD_charge_shipment]", sDataValues$) Then
+		SpTra = DbNamedValue("SpTra")
+		SpImballo = DbNamedValue("SpImballo")
+		SpVarie = DbNamedValue("SpVarie")
+		VetComp = DbNamedValue("VetComp")	
+	EndIf
+	DbNamedClear()	
+	
+	SpBolli = DbRead("dbo.[uspDD_charge_export]", "", sDataValues$)
+EndIf
+
+CaPre = 0
+chkCassa = 0
+If InStr(",10,11,13,14,15,16,17,", sDocTip$) Then
+	sSQL$ = "Select UseCaPre, PercCaPre From dbo.[DocDefEx_Pers] Where DocTip = " & DocTip.ToString() & " And NumPrefix = '" & DocInfoGet("formNumPrefix") & "' And NumSuffix = '" & DocInfoGet("formNumSuffix") & "'"
+	If DbReadNamed(sSQL$) Then
+		chkCassa = DbNamedValue("UseCaPre")
+		CaPre = DbNamedValue("PercCaPre")
+	EndIf
+	DbNamedClear()	
+Else
+	DataHide("25,26")
+EndIf
+If chkCassa = 0 Then
+	DataHide("CaPre")
+EndIf
+
+DataHide("AnaCod$,DsmCod$,DocTip,Uniq,SpRiba,16,17")
+If InStr(",15,16,17,25,26,30,", sDocTip$) Then
+	bDone = True
+	DataShow("SpRiba")
+	DataHide("31,36,ShipPayCod$,TrMezzo,VetCod$,VetCod2$,TrPorto,SendWay$,Info6$,ShipCod$,VetComp,Colli,AspBeni$,Imballo$,Peso,PesoNetto,Volume,DtaRitM$,OraRitM$")
+	chkShow = 0
+	FormSize(0, 500, -1, -1)
+ElseIf InStr(",14,23,24,", sDocTip$) Then
+	bDone = True
+	DataShow("16,17")
+	chkShow = 1
+	FormSize(0, 720, -1, -1)
+EndIf
+
+If bDone = False Then
+	chkShow = 0
+	DataHide("31,36,ShipPayCod$,TrMezzo,VetCod$,VetCod2$,TrPorto,SendWay$,Info6$,ShipCod$,VetComp,Colli,AspBeni$,Imballo$,Peso,PesoNetto,Volume,DtaRitM$,OraRitM$")
+	FormSize(0, 500, -1, -1)
+EndIf
+MouseWait(False)
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 110 -> Dettaglio campi -> Indice 47
+--------------------------------------------------------------------------------------------------------------------------
+Nullo: 1
+Bloccato: 1
+No bordi: 1
+Stile riga: WhiteSmoke
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 110 -> Dettaglio campi -> Indice 48
+--------------------------------------------------------------------------------------------------------------------------
+Descrizione: Percentuale cassa previdenziale
+T.Edit.: 50
+N.Caratt.: 13
+Nullo: 1
+Bloccato: 1
+Variabile: CaPre
+Stile riga: WhiteSmoke
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 110 -> Comandi aggiuntivi -> Indice 25
+--------------------------------------------------------------------------------------------------------------------------
+Descrizione: Cassa previdenziale
+Allineam. orizzontale: 2
+Allineam. verticale: 1
+Altezza (18 px): 36
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 110 -> Comandi aggiuntivi -> Indice 26
+--------------------------------------------------------------------------------------------------------------------------
+Tipo: 2
+Variabile: chkCassa
+Script:
+DataVisible(chkCassa, "CaPre")
+If chkCassa Then
+	sSQL$ = "Select PercCaPre From dbo.[DocDefEx_Pers] Where DocTip = " & DocTip.ToString() & " And NumPrefix = '" & DocInfoGet("formNumPrefix") & "' And NumSuffix = '" & DocInfoGet("formNumSuffix") & "'"
+	If DbReadNamed(sSQL$) Then
+		CaPre = DbNamedValue("PercCaPre")
+	EndIf
+	DbNamedClear()	
+Else
+	CaPre = 0
+EndIf
+DataFocus("SctTotPc")
+
+Allineam. orizzontale: 2
+Allineam. verticale: 1
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 122
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+ScriptOnOpen:
+MouseWait(True)
+Dim iSession = AppInfoGet("Session")
+Dim sDataValues$ = ""
+Dim bChanged = False
+Dim dTotMerce = 0
+
+If DbReadNamed("dbo.[uspDD_foot_changed]", iSession, DocTip, Uniq) Then
+	bChanged = DbNamedValue("Changed")	
+	dTotMerce = DbNamedValue("TotMerce")	
+EndIf
+DbNamedClear()
+
+TotMerce = dTotMerce
+TotMerceNetto = dTotMerce - SctTot - SctPag
+
+If bChanged Then
+	SctPagPc = 0
+	SctPag = 0
+
+	sDataValues$ = DialogGridValues()
+	If DbReadNamed("dbo.[uspDD_charge_payment]", 1, sDataValues$) Then
+		PagCod$ = DbNamedValue("PagCod")
+		SpRiba = DbNamedValue("SpRiba")
+		SctPagPc = DbNamedValue("SctPagPc")
+	EndIf
+	DbNamedClear()
+
+	SctPag = Round(TotMerce * SctPagPc / 100, 2)
+	TotMerceNetto = TotMerce - SctTot - SctPag
+EndIf
+
+CaPre = 0
+chkCassa = 0
+Dim sSQL$ = "Select UseCaPre, PercCaPre From dbo.[DocDefEx_Pers] Where DocTip = 15 And NumPrefix = '" & DocInfoGet("formNumPrefix") & "' And NumSuffix = '" & DocInfoGet("formNumSuffix") & "'"
+If DbReadNamed(sSQL$) Then
+	chkCassa = DbNamedValue("UseCaPre")
+	CaPre = DbNamedValue("PercCaPre")
+EndIf
+DbNamedClear()	
+If chkCassa = 0 Then
+	DataHide("CaPre")
+EndIf
+
+sDataValues$ = DialogGridValues()
+If DbReadNamed("dbo.[uspDD_charge_RAF]", bChanged, sDataValues$) Then
+	RafExclude = DbNamedValue("RafExclude")
+	
+	RafTaxID1$ = DbNamedValue("RafTaxID1")
+	RafPc1 = DbNamedValue("RafPc1")
+	RafBasePc1 = DbNamedValue("RafBasePc1")
+	RafMovStc1$ = DbNamedValue("RafMovStc1")
+	RafValue1 = DbNamedValue("RafValue1")
+	
+	RafTaxID2$ = DbNamedValue("RafTaxID2")
+	RafPc2 = DbNamedValue("RafPc2")
+	RafBasePc2 = DbNamedValue("RafBasePc2")
+	RafMovStc2$ = DbNamedValue("RafMovStc2")
+	RafValue2 = DbNamedValue("RafValue2")
+
+	'RafTaxID3$ = DbNamedValue("RafTaxID3")
+	'RafPc3 = DbNamedValue("RafPc3")
+	'RafBasePc3 = DbNamedValue("RafBasePc3")
+	'RafMovStc3$ = DbNamedValue("RafMovStc3")
+	'RafValue3 = DbNamedValue("RafValue3")		
+EndIf
+DbNamedClear()
+
+If (RafValue1 + RafValue2) = 0 Then
+	DataHide("RafTitle1$,RafTitle2$,RafExclude,RafTaxID1$,RafPc1,RafBasePc1,RafValue1,RafMovStc1$,RafTaxID2$,RafPc2,RafBasePc2,RafValue2,RafMovStc2$")
+	FormSize(730, 500)
+End If
+
+MouseWait(False)
+
+DataFocus("PagCod$")
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 122 -> Dettaglio campi -> Indice 47
+--------------------------------------------------------------------------------------------------------------------------
+Nullo: 1
+Bloccato: 1
+No bordi: 1
+Stile riga: WhiteSmoke
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 122 -> Dettaglio campi -> Indice 48
+--------------------------------------------------------------------------------------------------------------------------
+Descrizione: Percentuale cassa previdenziale
+T.Edit.: 50
+N.Caratt.: 13
+Nullo: 1
+Bloccato: 1
+Variabile: CaPre
+Stile riga: WhiteSmoke
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 122 -> Comandi aggiuntivi -> Indice 25
+--------------------------------------------------------------------------------------------------------------------------
+Descrizione: Cassa previdenziale
+Allineam. orizzontale: 2
+Allineam. verticale: 1
+Altezza (18 px): 36
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 122 -> Comandi aggiuntivi -> Indice 26
+--------------------------------------------------------------------------------------------------------------------------
+Tipo: 2
+Variabile: chkCassa
+Script:
+DataVisible(chkCassa, "CaPre")
+If chkCassa Then
+	sSQL$ = "Select PercCaPre From dbo.[DocDefEx_Pers] Where DocTip = 15 And NumPrefix = '" & DocInfoGet("formNumPrefix") & "' And NumSuffix = '" & DocInfoGet("formNumSuffix") & "'"
+	If DbReadNamed(sSQL$) Then
+		CaPre = DbNamedValue("PercCaPre")
+	EndIf
+	DbNamedClear()	
+Else
+	CaPre = 0
+EndIf
+DataFocus("SctTotPc")
+
+Allineam. orizzontale: 2
+Allineam. verticale: 1
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 192
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+ScriptOnOpen:
+MouseWait(True)
+Dim iSession = AppInfoGet("Session")
+Dim bChanged = False
+Dim bDone = False
+Dim dTotMerce = 0
+Dim sSQL$
+Dim sDocTip$ = "," & DocTip.ToString() & ","
+
+DataHide("AnaType,DocKind")
+
+If AspBeni$ = "" Then
+	sSQL$ = "Select ItemDes From dbo.[MixTab] Where TabID = 'DocAspBeni' And IsNull(ItemDefault, 0) = 1"
+	AspBeni$ = DbRead(sSQL$)
+EndIf
+
+If Imballo$ = "" Then
+	sSQL$ = "Select ItemDes From dbo.[MixTab] Where TabID = 'DocImballo' And IsNull(ItemDefault, 0) = 1"
+	Imballo$ = DbRead(sSQL$)
+EndIf
+
+
+If DbReadNamed("dbo.[uspDD_foot_changed]", iSession, DocTip, Uniq) Then
+	bChanged = DbNamedValue("Changed")	
+	dTotMerce = DbNamedValue("TotMerce")	
+EndIf
+DbNamedClear()
+
+TotMerce = dTotMerce
+TotMerceNetto = dTotMerce - SctTot - SctPag
+
+If bChanged Then
+	Dim sDataValues$ = DialogGridValues()
+
+	SctPagPc = 0
+	SctPag = 0
+	SpTra = 0
+	SpImballo = 0
+	SpVarie = 0
+	SpBolli = 0
+	VetComp = 0
+
+	If DbReadNamed("dbo.[uspDD_charge_payment]", 1, sDataValues$) Then
+		PagCod$ = DbNamedValue("PagCod")
+		SpRiba = DbNamedValue("SpRiba")
+		SctPagPc = DbNamedValue("SctPagPc")
+	EndIf
+	DbNamedClear()
+
+	SctPag = Round(TotMerce * SctPagPc / 100, 2)
+	TotMerceNetto = TotMerce - SctTot - SctPag
+
+	sDataValues$ = DialogGridValues()
+	If DbReadNamed("dbo.[uspDD_charge_package]", sDataValues$) Then
+		Colli = DbNamedValue("Colli")
+		Peso = DbNamedValue("Peso")
+		PesoNetto = DbNamedValue("PesoNetto")
+		Volume = DbNamedValue("Volume")		
+	EndIf
+	DbNamedClear()
+	
+	sDataValues$ = DialogGridValues()
+	If DbReadNamed("dbo.[uspDD_charge_shipment]", sDataValues$) Then
+		SpTra = DbNamedValue("SpTra")
+		SpImballo = DbNamedValue("SpImballo")
+		SpVarie = DbNamedValue("SpVarie")
+		VetComp = DbNamedValue("VetComp")		
+	EndIf
+	DbNamedClear()	
+	
+	SpBolli = DbRead("dbo.[uspDD_charge_export]", "", sDataValues$)
+EndIf
+
+CaPre = 0
+chkCassa = 0
+sSQL$ = "Select UseCaPre, PercCaPre From dbo.[DocDefEx_Pers] Where DocTip = " & DocTip.ToString() & " And NumPrefix = '" & DocInfoGet("formNumPrefix") & "' And NumSuffix = '" & DocInfoGet("formNumSuffix") & "'"
+If DbReadNamed(sSQL$) Then
+	chkCassa = DbNamedValue("UseCaPre")
+	CaPre = DbNamedValue("PercCaPre")
+EndIf
+DbNamedClear()	
+If chkCassa = 0 Then
+	DataHide("CaPre")
+EndIf
+
+DataHide("AnaCod$,DocTip,Uniq,SpRiba,16,17")
+If InStr(",15,16,17,25,26,30,", sDocTip$) Then
+	bDone = True
+	DataShow("SpRiba")
+	DataHide("31,36,ShipPayCod$,TrMezzo,VetCod$,VetCod2$,TrPorto,SendWay$,Info6$,ShipCod$,VetComp,Colli,AspBeni$,Imballo$,Peso,PesoNetto,Volume,DtaRitM$,OraRitM$")
+	chkShow = 0
+	FormSize(0, 500, -1, -1)
+ElseIf InStr(",14,23,24,", sDocTip$) Then
+	bDone = True
+	DataShow("16,17")
+	chkShow = 1
+	FormSize(0, 720, -1, -1)
+EndIf
+
+If bDone = False Then
+	chkShow = 0
+	DataHide("31,36,ShipPayCod$,TrMezzo,VetCod$,VetCod2$,TrPorto,SendWay$,Info6$,ShipCod$,VetComp,Colli,AspBeni$,Imballo$,Peso,PesoNetto,Volume,DtaRitM$,OraRitM$")
+	FormSize(0, 500, -1, -1)
+EndIf
+MouseWait(False)
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 192 -> Dettaglio campi -> Indice 47
+--------------------------------------------------------------------------------------------------------------------------
+Nullo: 1
+Bloccato: 1
+No bordi: 1
+Stile riga: WhiteSmoke
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 192 -> Dettaglio campi -> Indice 48
+--------------------------------------------------------------------------------------------------------------------------
+Descrizione: Percentuale cassa previdenziale
+T.Edit.: 50
+N.Caratt.: 13
+Nullo: 1
+Bloccato: 1
+Variabile: CaPre
+Stile riga: WhiteSmoke
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 192 -> Comandi aggiuntivi -> Indice 25
+--------------------------------------------------------------------------------------------------------------------------
+Descrizione: Cassa previdenziale
+Allineam. orizzontale: 2
+Allineam. verticale: 1
+Altezza (18 px): 36
+--------------------------------------------------------------------------------------------------------------------------
+Modulo di dialogo 192 -> Comandi aggiuntivi -> Indice 26
+--------------------------------------------------------------------------------------------------------------------------
+Tipo: 2
+Variabile: chkCassa
+Script:
+DataVisible(chkCassa, "CaPre")
+If chkCassa Then
+	sSQL$ = "Select PercCaPre From dbo.[DocDefEx_Pers] Where DocTip = " & DocTip.ToString() & " And NumPrefix = '" & DocInfoGet("formNumPrefix") & "' And NumSuffix = '" & DocInfoGet("formNumSuffix") & "'"
+	If DbReadNamed(sSQL$) Then
+		CaPre = DbNamedValue("PercCaPre")
+	EndIf
+	DbNamedClear()	
+Else
+	CaPre = 0
+EndIf
+DataFocus("SctTotPc")
+
+Allineam. orizzontale: 2
+Allineam. verticale: 1
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docBO{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docFT{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docFTA{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docFTS{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docFTX1{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select
+	  DOC.DocKind
+	, DOC.AnaCod
+	, ANA.ItemDes
+	, DOC.NsRif
+	, DOC.VsRif
+	, DOC.ForDocNum
+	, DOC.ForDocDta
+	, DOC.NumExt
+	, DOC.DocRif
+	, DOC.Info
+	, DOC.DocTip, DOC.DocNum, DOC.DocDta, DOC.DocOra, DOC.DocStatus
+	, DOC.AnaType, DOC.AnaCodFrom, DOC.DsmCod, DOC.MndCod
+	, DOC.SendDta, DOC.SendWay, DOC.SendInfo, DOC.CnsDta, DOC.CnsWeek, DOC.CnsInfo
+	, DOC.DocTot, DOC.DocImp, DOC.DocIva, DOC.DocOmg, DOC.DocMerce, DOC.DocSconti, DOC.DocSpese
+	, DOC.PagStart, DOC.PagCod, DOC.AgeCod, DOC.PrvSplitCod, DOC.PrvFix, DOC.PrvTot
+	, DOC.LstCod, DOC.LstSconti
+	, DOC.ShipPayCod, DOC.ShipCod, DOC.VetCod, DOC.VetCod2
+	, DOC.SctTotPc, DOC.SctTot, DOC.SctPagPc, DOC.SctPag, DOC.SpImballo, DOC.SpTra, DOC.SpRiba, DOC.SpBolli, DOC.SpVarie
+	, DOC.Lotto, DOC.Fornitura, DOC.RapUniq, DOC.Packing, DOC.TrMezzo, DOC.TrPorto, DOC.Colli, DOC.EmiCau, DOC.AspBeni, DOC.Imballo
+	, DOC.Peso, DOC.PesoNetto, DOC.Volume
+	, DOC.DtaRitM, DOC.OraRitM, DOC.SegueFt, DOC.VetComp
+	, DOC.Info1, DOC.Info2, DOC.Info3, DOC.Info4, DOC.Info5, DOC.Info6
+	, DOC.DocIvaCod, DOC.Divisa, DOC.Cambio, DOC.CambioDta
+	, DOC.CntRegMod, DOC.CntRegDta, DOC.CntRegDtaIva, DOC.MagMovMod, DOC.MagMovMod2, DOC.MagMovDta
+	, DOC.NumCod, DOC.Numero
+	, DOC.Uniq, DOC.Uniq2
+	, DOC.RecCreate, DOC.RecUserID, DOC.RecCompany, DOC.RecAgency
+	, DOC.RecLocked, DOC.RecPrinted
+	, DOC.RecType, DOC.RecElabID, DOC.RecValue, DOC.RecMaster	  
+	, CaPre
+From dbo.[{TableHead}] DOC
+Left Join dbo.[MixAna] ANA On ANA.ItemID = DOC.AnaCod And ANA.ItemType = 1
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = DOC.Uniq
+Where DOC.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docFTX2{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select
+	  DOC.DocKind
+	, DOC.AnaCod
+	, ANA.ItemDes
+	, DOC.NsRif
+	, DOC.VsRif
+	, DOC.ForDocNum
+	, DOC.ForDocDta
+	, DOC.NumExt
+	, DOC.DocRif
+	, DOC.Info
+	, DOC.DocTip, DOC.DocNum, DOC.DocDta, DOC.DocOra, DOC.DocStatus
+	, DOC.AnaType, DOC.AnaCodFrom, DOC.DsmCod, DOC.MndCod
+	, DOC.SendDta, DOC.SendWay, DOC.SendInfo, DOC.CnsDta, DOC.CnsWeek, DOC.CnsInfo
+	, DOC.DocTot, DOC.DocImp, DOC.DocIva, DOC.DocOmg, DOC.DocMerce, DOC.DocSconti, DOC.DocSpese
+	, DOC.PagStart, DOC.PagCod, DOC.AgeCod, DOC.PrvSplitCod, DOC.PrvFix, DOC.PrvTot
+	, DOC.LstCod, DOC.LstSconti
+	, DOC.ShipPayCod, DOC.ShipCod, DOC.VetCod, DOC.VetCod2
+	, DOC.SctTotPc, DOC.SctTot, DOC.SctPagPc, DOC.SctPag, DOC.SpImballo, DOC.SpTra, DOC.SpRiba, DOC.SpBolli, DOC.SpVarie
+	, DOC.Lotto, DOC.Fornitura, DOC.RapUniq, DOC.Packing, DOC.TrMezzo, DOC.TrPorto, DOC.Colli, DOC.EmiCau, DOC.AspBeni, DOC.Imballo
+	, DOC.Peso, DOC.PesoNetto, DOC.Volume
+	, DOC.DtaRitM, DOC.OraRitM, DOC.SegueFt, DOC.VetComp
+	, DOC.Info1, DOC.Info2, DOC.Info3, DOC.Info4, DOC.Info5, DOC.Info6
+	, DOC.DocIvaCod, DOC.Divisa, DOC.Cambio, DOC.CambioDta
+	, DOC.CntRegMod, DOC.CntRegDta, DOC.CntRegDtaIva, DOC.MagMovMod, DOC.MagMovMod2, DOC.MagMovDta
+	, DOC.NumCod, DOC.Numero
+	, DOC.Uniq, DOC.Uniq2
+	, DOC.RecCreate, DOC.RecUserID, DOC.RecCompany, DOC.RecAgency
+	, DOC.RecLocked, DOC.RecPrinted
+	, DOC.RecType, DOC.RecElabID, DOC.RecValue, DOC.RecMaster	 
+	, CaPre 
+From dbo.[{TableHead}] DOC
+Left Join dbo.[MixAna] ANA On ANA.ItemID = DOC.AnaCod And ANA.ItemType = 1
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = DOC.Uniq
+Where DOC.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docNC{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docNCA{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docNCS{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docOC{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliOrdEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliOrd]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliOrdEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliOrdEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docOP{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliOffEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliOff]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliOffEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliOffEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docOPP{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = 19
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = 19
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliOff]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliOffEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliOffEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliOffEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docPD{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo docRF{0} -> Indice 1
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select A.*,
+	ItemDes, Ind, Loc, Pro, Naz,
+	'Telefono' = (Select Top 1
+				IsNull(Tel1, '') + ' ' + IsNull(Tel2, '') + ' ' + IsNull(Tel3, '')
+				From [MixAnaRif] C
+				Where C.ItemID = B.ItemID 
+					And C.ItemType = A.AnaType
+					And IsNull(C.ItemIDSede, '') = ''
+				Order By IsNull(ItemDefault, 0) DESC
+		),
+	PIva, CFis,
+	CaPre
+From dbo.[{TableHead}] A
+Left Join dbo.[MixAna] B On B.ItemID = A.AnaCod And B.ItemType = A.AnaType
+Left Join dbo.[{TableHead}Ex_Pers] C On C.Uniq = A.Uniq
+Where A.Uniq = (0)
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+Uniq
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+[...]
+INSERT dbo.[CliDocEx_Pers](
+	CaPre, Uniq
+	)
+VALUES (
+	{CaPre},
+	{Uniq}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[CliDoc]
+WHERE Uniq = {original_Uniq}
+DELETE FROM dbo.[CliDocEx_Pers]
+WHERE Uniq = {original_Uniq}
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+[...]
+MERGE dbo.[CliDocEx_Pers] WITH(HOLDLOCK) AS T
+USING (VALUES ({CaPre}))
+    AS S (CaPre)
+    ON T.Uniq = {original_Uniq}
+WHEN MATCHED THEN
+    UPDATE
+    SET CaPre = S.CaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	Uniq, CaPre
+	)
+VALUES (
+	{original_Uniq}, S.CaPre
+	);
+]]>
+</updatecommand>
+--------------------------------------------------------------------------------------------------------------------------
+Modulo GesTab3 -> Indice 0
+--------------------------------------------------------------------------------------------------------------------------
+Pers: 1
+SQL:
+Select
+	  DocDes, DocDefault, A.DocTip	
+	, A.NumPrefix, A.NumSuffix
+	, StatCod
+	, DocDtaMin, DocDtaMax, DocUserDefault, DocUserAllow
+	, NumCod, RptGroupID, EmiCau
+	, UseCaPre, PercCaPre
+	, SegueFt
+	, DeleteReg, DeleteReplace
+	, CntRegMod, MagMovMod, MagMovModQNE
+	, CdcModel
+	, UsePrdForm, UseDesExt
+	, OnSaveLock, OnReportLock, OnReportClose
+	, DocParDialogID
+	-- , PrdCodNeeded, PrdCodAdvice
+From dbo.[DocDef] A Left Join dbo.[DocDefEx_Pers] B On
+A.DocTip = B.DocTip And A.NumPrefix = B.NumPrefix And A.NumSuffix = B.NumSuffix
+Order By DocTip, NumPrefix, NumSuffix
+
+Script dati:
+<datacommandkey>
+<![CDATA[
+DocTip, NumPrefix, NumSuffix
+]]>
+</datacommandkey>
+<insertcommand>
+<![CDATA[
+INSERT dbo.[DocDef](
+	DocDes, DocDefault, DocTip	
+	, NumPrefix, NumSuffix
+	, StatCod
+	, DocDtaMin, DocDtaMax, DocUserDefault, DocUserAllow
+	, NumCod, RptGroupID, EmiCau
+	, SegueFt
+	, DeleteReg, DeleteReplace
+	, CntRegMod, MagMovMod, MagMovModQNE
+	, CdcModel
+	, UsePrdForm, UseDesExt
+	, OnSaveLock, OnReportLock, OnReportClose
+	, DocParDialogID
+	)
+VALUES (
+	'{DocDes}', {DocDefault}, {DocTip}
+	, '{NumPrefix}', '{NumSuffix}'
+	, '{StatCod}'
+	, '{DocDtaMin}', '{DocDtaMax}', '{DocUserDefault}', '{DocUserAllow}'
+	, '{NumCod}', '{RptGroupID}', '{EmiCau}'
+	, {SegueFt}
+	, {DeleteReg}, {DeleteReplace}
+	, '{CntRegMod}', '{MagMovMod}', '{MagMovModQNE}'
+	, '{CdcModel}'
+	, {UsePrdForm}, {UseDesExt}
+	, {OnSaveLock}, {OnReportLock}, {OnReportClose}
+	, {DocParDialogID}
+	)
+INSERT dbo.[DocDefEx_Pers](
+	DocTip	
+	, NumPrefix, NumSuffix
+	, UseCaPre, PercCaPre
+	)
+VALUES (
+	{DocTip}
+	, '{NumPrefix}', '{NumSuffix}'
+	, {UseCaPre}, {PercCaPre}
+	)
+]]>
+</insertcommand>
+<deletecommand>
+<![CDATA[
+DELETE dbo.[DocDef]
+WHERE DocTip = {original_DocTip} And NumPrefix = '{original_NumPrefix}' And NumSuffix = '{original_NumSuffix}'
+DELETE FROM dbo.[DocDefEx_Pers]
+WHERE DocTip = {original_DocTip} And NumPrefix = '{original_NumPrefix}' And NumSuffix = '{original_NumSuffix}'
+]]>
+</deletecommand>
+<updatecommand>
+<![CDATA[
+UPDATE dbo.[DocDef] SET
+	DocDes = '{DocDes}',
+	DocDefault = {DocDefault},
+	DocTip	 = {DocTip},
+	NumPrefix = '{NumPrefix}',
+	NumSuffix = '{NumSuffix}',
+	StatCod = '{StatCod}',
+	DocDtaMin = '{DocDtaMin}',
+	DocDtaMax = '{DocDtaMax}',
+	DocUserDefault = '{DocUserDefault}',
+	DocUserAllow = '{DocUserAllow}',
+	NumCod = '{NumCod}',
+	RptGroupID = '{RptGroupID}',
+	EmiCau = '{EmiCau}',
+	SegueFt = {SegueFt},
+	DeleteReg = {DeleteReg},
+	DeleteReplace = {DeleteReplace},
+	CntRegMod = '{CntRegMod}',
+	MagMovMod = '{MagMovMod}',
+	MagMovModQNE = '{MagMovModQNE}',
+	CdcModel = '{CdcModel}',
+	UsePrdForm = {UsePrdForm},
+	UseDesExt = {UseDesExt},
+	OnSaveLock = {OnSaveLock},
+	OnReportLock = {OnReportLock},
+	OnReportClose = {OnReportClose},
+	DocParDialogID = {DocParDialogID}
+WHERE DocTip = {original_DocTip} And NumPrefix = '{original_NumPrefix}' And NumSuffix = '{original_NumSuffix}'
+MERGE dbo.[DocDefEx_Pers] WITH(HOLDLOCK) AS TARGET
+USING (VALUES ({UseCaPre}, {PercCaPre}))
+    AS SOURCE (UseCaPre, PercCaPre)
+    ON TARGET.DocTip = {original_DocTip} And TARGET.NumPrefix = '{original_NumPrefix}' And TARGET.NumSuffix = '{original_NumSuffix}'
+WHEN MATCHED THEN
+    UPDATE
+    SET UseCaPre = SOURCE.UseCaPre,
+        PercCaPre = SOURCE.PercCaPre
+WHEN NOT MATCHED THEN
+INSERT (
+	DocTip	
+	, NumPrefix, NumSuffix
+	, UseCaPre, PercCaPre
+	)
+VALUES (
+	{original_DocTip}
+	, '{original_NumPrefix}', '{original_NumSuffix}'
+	, SOURCE.UseCaPre, SOURCE.PercCaPre
+	);
+]]>
+</updatecommand>

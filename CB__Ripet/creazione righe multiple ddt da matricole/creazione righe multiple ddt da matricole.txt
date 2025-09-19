@@ -1,0 +1,128 @@
+Metadati CliDocLin Num.16 PrdSerial
+
+ScriptQT:
+@0$ = ValueGet("PrdCod")
+@1$ = "1"
+@10 = ValueGet("Uniq")
+@11$ = "CliDocLin"
+If @0$ = "" Then
+	@0$ = "%"
+EndIf
+ShowQT PrdSerial{0}status{1}table{11}
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+Metadati ForDocLin Num.16 PrdSerial
+
+ScriptQT:
+@0$ = ValueGet("PrdCod")
+@1$ = "1"
+@10 = ValueGet("Uniq")
+@11$ = "ForDocLin"
+If @0$ = "" Then
+	@0$ = "%"
+EndIf
+ShowQT PrdSerial{0}status{1}table{11}
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+Modulo docBO{0} Indice 0 ->
+Modulo docFT{0} Indice 0 ->
+Modulo docFTA{0} Indice 0 ->
+Modulo docFTS{0} Indice 0 ->
+Modulo docFTX1{0} Indice 0 ->
+Modulo docNC{0} Indice 0 ->
+Modulo docNCA{0} Indice 0 ->
+Modulo docNCS{0} Indice 0 ->
+Modulo docPD{0} Indice 0 ->
+Modulo docRF{0} Indice 0 ->
+Modulo docBF{0} Indice 0 ->
+Modulo docCF{0} Indice 0 ->
+Modulo docDF{0} Indice 0 ->
+Modulo docFF{0} Indice 0 ->
+
+PERS : 1
+
+Script Eventi:
+[...]
+<prdserial.buttonclick>
+<![CDATA[
+DataSave()
+]]>
+</prdserial.buttonclick>
+[...]
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+Modulo PrdSerial{0}status{1}table{11} Indice 0 ->
+
+PERS : 1
+
+Tipo: 0
+
+Uso: gridvalue
+
+Stile finestra: 1
+
+Grid Checked: 1
+
+Intestazione finestra: Numeri di matricola, prodotto {0}, status {1}, table {11}
+
+Visualizzazione: 800,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+
+Opzioni: 0001110100000000000
+
+SQL:
+Select Convert(bit, 0) As X, PrdCod, PrdSerial, ItemDta, ForCod, PdtCod, ForSerial, PdtSerial
+From dbo.[PrdSerialAna]
+Where (1=1)
+	And PrdCod Like '{0}'
+	And IsNull(ItemStatus, '') Like '{1}'
+	--Inizio Pers M2
+	And LTrim(RTrim(IsNull(ItemKind, ''))) Not In ('OPERATIVO', 'NASCOSTO')
+	--Fine Pers M2
+
+Script Eventi:
+<formok>
+<![CDATA[
+If InStr(GridCheckedList("PrdSerial",",",-1),",") Then
+	'ottengo dati da form docBO{0}/docDF{0}
+	Dim sPrdCod$ = @0$
+	Dim sItemStatus$ = @1$
+	Dim iUniq = @10
+	Dim sTableName$ = @11$
+	Dim iSession = AppInfoGet("Session")
+	Dim sSql$ = "Select TOP 1 UniqDoc From dbo.[" & sTableName$ & "] Where Uniq = " & Str(iUniq)
+	Dim sUniqDoc$ = DbRead(sSql$)
+	
+	'chiamo SP
+	sSql$ = "dbo.[uspPrdSerial_create_multiple_Pers]"
+	Dim bOk = DbRead(sSql$, "Result", iSession, sTableName$, iUniq, sPrdCod$, sItemStatus$, Str(GridCheckedList("PrdSerial",",",-1)))
+
+	If bOk <> 1 Then
+		MsgShow("(x)(KO)[La creazione multipla non è andata a buon fine!]Sono stati rilevati dei dati non idonei all'assegnazione massiva di matricole.|Se ritenete che i dati selezionati non dovrebbero causare errori, ecco cosa potrebbe essere successo:||Se avete altri form di Bee.P aperti in background, è possibile che abbiano alterato alcune delle variabili necessarie: Chiudete e riaprite il form di modifica del DDT per forzare un reset delle variabili.||L'anagrafica delle matricole potrebbe essere stata modificata da un altro utente in contemporanea rendendo le matricole selezionate non più idonee: Premere il pulsante di refresh dell'elenco per assicurarsi che le matricole non siano cambiate.||Se la creazione continua ad essere interrotta anche dopo aver fatto questi tentativi, potrebbe essersi verificato un errore imprevisto più grave: Contattate la M2Sistemi Srl per ricevere assistenza su questa funzione personalizzata.")
+	Else
+		'chiudo form corrente
+		FormClose()
+		'refresh form docBO{0}/docDF{0}
+		If sTableName$ = "CliDocLin" Then
+			FormDataRefreshIndexes("docBO" & sUniqDoc$, "0", False, True)
+		Else If sTableName$ = "ForDocLin" Then
+			FormDataRefreshIndexes("docDF" & sUniqDoc$, "0", False, True)
+		EndIf
+	EndIf
+	STOP
+EndIf
+]]>
+</formok>
+
+Nome dati: PrdSerialAna
+
+Ritorna: PrdSerial
+
+Tooltip: 
+Select IsNull(PRD.PrdCod, '')
+	+ '|' + IsNull(PRD.PrdDes, '')
+From dbo.[PrdSerialAna] SER
+Left Join dbo.[PrdAna] PRD On PRD.PrdCod = SER.PrdCod
+Where SER.PrdSerial = '{VALUE}'

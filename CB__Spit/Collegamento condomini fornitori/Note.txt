@@ -1,0 +1,27 @@
+Metadati tabella MixAna campo Tab1 Script QT:
+Dim sItemType$
+sItemType$ = ValueGet("ItemType")
+If sItemType$ = "1" Then
+	ShowQT MixAnaFor
+Else If sItemType$ = "2" Then
+	ShowQT MixForTab1
+Else If sItemType$ = "3" Then
+	' non previsto
+Else If sItemType$ = "4" Then
+	' non previsto
+Else If sItemType$ = "51" Then
+	ShowQT MixOrgTab1
+Else If sItemType$ = "52" Then
+	ShowQT MixAutoTab1
+Else If sItemType$ = "53" Then
+	ShowQT MixNetTab1
+End If
+
+
+Insert [MixTab] (TabID, ItemID, ItemDes, ItemDefault, ItemHide)
+Values ('CliTabUso',1,'AMM. CONDOMINIO',0,0)
+
+update A
+set A.tab1 = B.itemid
+from mixana A inner join mixana B 
+on A.itemtype=1 and B.itemtype=2 and A.itemmemo = B.itemdes

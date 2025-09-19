@@ -1,0 +1,5 @@
+insert [PrdAna] (prdcod, prddes, prdfabbplan, prduso) 
+Select concat(A.Prdcod, replace(B.PrdCod,'X.X','')) prdcod, B.prddes, B.prdfabbplan, B.prduso
+From [PrdAna] A join [PrdAna] B on A.prdcod not like 'X.X.%' and A.prdcod like '%.%' and B.prdcod like 'X.X.%';
+
+delete from [PrdAna] where prdcod like 'X.X.%'

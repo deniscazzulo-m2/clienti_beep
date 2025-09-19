@@ -1,0 +1,163 @@
+/*
+*
+* Estrapolazione contenuto CSV per inserire i prezzi di vendita
+*
+*/
+CREATE PROCEDURE [uspLaunchCsvExtractor_Pers]
+	@iSessionID int
+	, @sFilePath varchar(255)
+AS
+SET NOCOUNT ON
+
+Declare @sMsg varchar(1024) = 'OK'
+Declare @iTotRows int = 0
+Declare @iRowsImported int = 0
+Declare @sCmd varchar(2000)
+Declare @sRow varchar(1024)
+Declare @sColumn varchar(1024)
+Declare @iColumn int
+Declare @sPrdCod varchar(32)
+Declare @sCatCod varchar(32)
+Declare @sSconti varchar(16)
+Declare @tbFileBody Table(
+	[Linea] varchar(1024),
+	[UniqRow] int IDENTITY
+)
+Declare @tbQuantita Table(
+	[Qta] varchar(1024),
+	[Pos] int
+)
+Declare @tbPrices Table(
+	[PrdCod] varchar(32),
+	[Qta] int,
+	[PrdPrz] decimal(19, 6)
+)
+
+Set @sFilePath = RTrim(LTrim(IsNull(@sFilePath, '')))
+
+-- CONTROLLI INIZIALI
+If Len(@sFilePath) <= 0 
+	Set @sMsg = 'Nome del file CSV non valido!'
+Else If IsNull((Select Top 1 1 From [MixTab] Where TabID = 'CliCat'),0) <> 1
+	Set @sMsg = 'L''anagrafica è priva di categorie clienti'
+Else
+Begin
+	Set @sCmd = 'type "' + @sFilePath + '"'
+
+	Insert Into @tbFileBody(Linea)
+	Exec [master].dbo.[xp_cmdshell] @sCmd
+
+	Delete From @tbFileBody Where 
+	Len(RTrim(LTrim(IsNull(Linea, '')))) = 0 
+	Or RTrim(LTrim(IsNull(Linea, ''))) Not Like '%;%'
+	
+	Select @iTotRows = Count(1) From @tbFileBody
+	Set @iTotRows = IsNull(@iTotRows,0) - 1
+	
+	If @iTotRows <= 0
+		Set @sMsg = 'Il file CSV non contiene dati sufficienti da poter iniziare l''importazione'
+	Else
+	Begin
+		-- ESTRAGGO QUANTITA' (riga che inizia con codice)
+		Insert Into @tbQuantita(Qta, Pos)
+		Select LTrim(RTrim(IsNull(Token, ''))), Pos From dbo.[udfStrSplit] (
+			(
+				Select Top 1 RTrim(LTrim(Z.Linea))
+				From @tbFileBody Z
+				Where Lower(RTrim(LTrim(Z.Linea))) Like 'codice;%'
+			)
+			, ';'
+		)
+		Where Lower(LTrim(RTrim(IsNull(Token, '')))) <> 'codice'
+
+		If (Select Count(1) From @tbQuantita) <= 0
+			Set @sMsg = 'Il file CSV non contiene scaglioni di quantità leggibili'
+		Else
+		Begin
+			-- ESTRAGGO PREZZI (tranne riga che inizia con codice)
+			Declare cCursorRows Cursor FAST_FORWARD For
+			Select Replace(RTrim(LTrim(Linea)), ',', '.') MyRow
+			From @tbFileBody 
+			Where Lower(RTrim(LTrim(Linea))) Not Like 'codice;%'
+			Order By UniqRow ASC
+
+			Open cCursorRows
+			Fetch Next From cCursorRows Into @sRow
+			While (@@Fetch_Status <> -1)
+			Begin
+				Select @sPrdCod = LTrim(RTrim(IsNull(Token, ''))) From dbo.[udfStrSplit] (@sRow, ';') Where Pos = 0
+
+				If IsNull((Select Top 1 1 From [PrdAna] Where Lower(PrdCod) = Lower(@sPrdCod)),0) = 1 
+				And IsNull((Select Top 1 1 From @tbPrices Where Lower(PrdCod) = Lower(@sPrdCod)),0) <> 1
+				Begin
+					Set @iRowsImported = @iRowsImported + 1
+					
+					Declare cCursorColumns Cursor FAST_FORWARD For
+					Select Pos, Token
+					From dbo.[udfStrSplit] (@sRow, ';')
+					Where Pos > 0
+						
+					Open cCursorColumns
+					Fetch Next From cCursorColumns Into @iColumn, @sColumn
+					While (@@Fetch_Status <> -1)
+					Begin
+						
+						If IsNull(Try_Cast(@sColumn as decimal(19,6)), 0) > 0 
+						And (
+							Select IsNull(Try_Cast(Qta as int), 0) From @tbQuantita A Where A.Pos = @iColumn
+						) > 0
+						Begin
+							Insert Into @tbPrices (
+								  PrdCod
+								, Qta
+								, PrdPrz
+							) Values (
+								  @sPrdCod
+								, (Select IsNull(Try_Cast(Qta as int), 0) From @tbQuantita A Where A.Pos = @iColumn)
+								, IsNull(Try_Cast(@sColumn as decimal(19,6)), 0)
+							)
+						End
+						-----------------------------------
+						Fetch Next From cCursorColumns Into @iColumn, @sColumn
+					End
+					Close cCursorColumns
+					Deallocate cCursorColumns
+				End
+				-----------------------------------
+				Fetch Next From cCursorRows Into @sRow
+			End
+			Close cCursorRows
+			Deallocate cCursorRows
+
+			-- INSERISCO NUOVI DATI
+			Delete From dbo.[VndPro]
+			Where Left(Lower(RTrim(LTrim(ItemInfo))), 7) = '!import'
+
+			Declare cCursorRows2 Cursor FAST_FORWARD For
+			Select ItemID, Sconti
+			From [MixTab] Join [MixAnaDiscount] On 
+			TabID = 'CliCat' 
+			And GrpCod = 'PROM'
+			And AnaType = 1
+			And ItemID = CatCod
+
+			Open cCursorRows2
+			Fetch Next From cCursorRows2 Into @sCatCod, @sSconti
+			While (@@Fetch_Status <> -1)
+			Begin
+				
+				Insert Into dbo.[VndPro] (CliCat, PrdSc, PrdCod, PrdQta, PrdPrz, ItemInfo, DtaStart, DtaEnd)
+				Select @sCatCod, @sSconti, PrdCod, Qta, PrdPrz, '!IMPORT', GetDate(), '2050-12-31' From @tbPrices
+				
+				Fetch Next From cCursorRows2 Into @sCatCod, @sSconti
+			End
+			Close cCursorRows2
+			Deallocate cCursorRows2
+		End
+	End
+End
+If @sMsg = 'OK'
+	Set @sMsg = '(i)(OK)[Import completato!]Righe rilevate nel file: ' + Cast(@iTotRows as varchar) + '|Righe importate con successo: ' + Cast(@iRowsImported as varchar)
+Else
+	Set @sMsg = '(x)(OK)[Import impossibile!]' + @sMsg
+Select @sMsg as Result

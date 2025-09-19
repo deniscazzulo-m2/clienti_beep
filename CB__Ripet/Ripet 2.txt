@@ -1,0 +1,16 @@
+Ordine "Riparazione" per le manutenzioni.
+Il manutentore fa un ordine con quel prefisso documento. 
+Quel prefisso documento deve fare una movimentazione che Scarica dal proprio magazzzino e una che Carica nel magazzino RIPARAZIONI o ROTTE (in base a cosa viene impostato nei dati del prodotto (magari info2))
+
+Discorso su App
+ci saranno ordini fatti da parte dei riparatore che usano il prefisso RIP dinamico e da cui prendono il proprio magazzino
+
+BeepWeb scarica Distinta in modo corretto?
+
+DDT di acquisto a fornitore/riparatore
+Solo i DDT di uscita
+
+collegamento delle matricole in base all'accesso
+2 nuove sotto-schede nel fornitore (elenco utenti (con password) e associazioni utenti-matricole (facoltativo solo per dare la specifica))
+
+-----------------------------------------------------------------------------------------
