@@ -5,3 +5,11 @@
 *.exe
 *.bpDEMO*
 *.dll
+# dump/backup DB pesanti
+CB__NanoTech/BpDEMO.sql
+CB__NanoTech/Generazione BpDEMO.sql
+*.bak
+*.bacpac
+*.mdf
+*.ldf
+*_backup*.sql
